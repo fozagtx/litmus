@@ -1,0 +1,23 @@
+# Secrets — never commit
+.env
+data/signing_key.pem
+*.pem
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Local index + working data
+data/*.db
+data/*.db-*
+data/tmp/
+
+# Node
+web/node_modules/
+web/dist/
+
+# OS / editor
+.DS_Store
+*.log

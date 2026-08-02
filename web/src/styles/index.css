@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+/*
+  Litmus design tokens — "Ledger" palette (PRD §7.1).
+  One accent color (--color-seal). No shadows anywhere: the shadow scale is
+  wiped so no shadow utility can ship by accident.
+*/
+@theme {
+  --color-*: initial;
+  --color-white: #ffffff;
+  --color-paper: #f7f5f0;
+  --color-ink: #1a1917;
+  --color-ink-2: #6b6862;
+  --color-line: #e3e0d8;
+  --color-seal: #0f6e56;
+  --color-seal-tint: #e1f5ee;
+  --color-amber: #ba7517;
+  --color-amber-tint: #faeeda;
+  --color-danger: #a32d2d;
+  --color-mono-chip: #efece4;
+
+  --font-*: initial;
+  --font-display: "Newsreader", Georgia, serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --text-*: initial;
+  --text-13: 0.8125rem;
+  --text-13--line-height: 1.55;
+  --text-15: 0.9375rem;
+  --text-15--line-height: 1.55;
+  --text-17: 1.0625rem;
+  --text-17--line-height: 1.55;
+  --text-22: 1.375rem;
+  --text-22--line-height: 1.15;
+  --text-30: 1.875rem;
+  --text-30--line-height: 1.15;
+  --text-44: 2.75rem;
+  --text-44--line-height: 1.15;
+
+  --radius-*: initial;
+  --radius-input: 6px;
+  --radius-card: 10px;
+  --radius-full: 9999px;
+
+  --shadow-*: initial;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-paper);
+  }
+  body {
+    margin: 0;
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background-color: var(--color-seal-tint);
+  }
+}
+
+/* The single earned animation: the seal stamp. Scales 0.8 -> 1.0 exactly once
+   when a receipt locks (PRD §7.2 rule 4). */
+@keyframes seal-stamp {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.seal-stamp {
+  animation: seal-stamp 150ms ease-out both;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.fade-in {
+  animation: fade-in 150ms ease-out both;
+}
+
+/* Skeleton ledger rows — sanctioned by the §7.3 wireframe note; opacity only. */
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.skeleton-row {
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+@media print {
+  body {
+    background-color: #ffffff;
+  }
+}
