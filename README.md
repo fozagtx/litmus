@@ -117,7 +117,6 @@ python scripts/create_buckets.py    create/verify buckets with a scoped key
 python scripts/check_providers.py   validate model slugs against live catalogs
 python scripts/reindex.py           rebuild the fingerprint index from the vault
 python scripts/smoke_local.py       offline test suite, no network
-bash scripts/railway_env.sh         push .env to a linked Railway service
 ```
 
 ## Important limits
