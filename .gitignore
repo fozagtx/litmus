@@ -21,3 +21,7 @@ web/dist/
 # OS / editor
 .DS_Store
 *.log
+
+# Working documents, not part of the shipped repo
+litmus-prd.md
+docs/
