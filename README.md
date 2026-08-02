@@ -1,120 +1,142 @@
 # Litmus
 
-**Your creative memory, tested and sealed.**
+A generation studio where every AI asset is born with a signed birth certificate, sealed in write-once storage, and verifiable even from a cropped screenshot.
 
-Litmus is a generation studio where every AI asset is born with a signed birth
-certificate — stored in write-once vault storage that nobody can rewrite. Not
-us. Not anyone. Verification works even on a cropped, re-compressed screenshot.
+Live app: https://litmus-production-262d.up.railway.app
+Built for the Backblaze Generative Media Hackathon on Backblaze B2 Object Lock and the Genblaze pipeline SDK.
 
-Built for the Backblaze Generative Media Hackathon on **Backblaze B2 Object
-Lock** and the **Genblaze** pipeline SDK.
+## What is it?
+
+Litmus adds five parts to a generation workflow:
+
+- **Studio** takes a prompt, generates an image, and optionally narrates it. Every pipeline step streams into a ledger timeline as it happens.
+- **Judge** is a vision model that scores each generation against the brief, 0 to 100. Under 70 the pipeline retries, up to twice, feeding the judge's notes back into the prompt. Rejected attempts are kept, receipted, and visible as discarded candidates.
+- **Vault** stores every record in Backblaze B2. Manifests, per-step receipts, and Merkle anchors go into a bucket with Object Lock in compliance mode. Once written, nobody can alter or delete them until retention expires. Not the operator. Not Backblaze.
+- **Verify** is a public page. Anyone drops in a file, no account. Exact SHA-256 match proves the original bit for bit. A perceptual hash recovers the record from cropped, re-compressed, or screenshotted copies.
+- **Export** produces a signed zip of the whole vault plus an offline `verify.py` that checks everything without this service existing.
+
+The server signs every manifest and receipt with Ed25519. The browser re-verifies signatures and Merkle inclusion proofs itself, so you do not have to trust the server.
 
 ## How it works
 
-1. **Born verifiable.** Every generation gets a signed JSON manifest (prompt,
-   model, provider, params, parent asset, timestamps, creator key) at the
-   moment of creation. Manifests and per-step receipts are Ed25519-signed.
-2. **Sealed, not stored.** Manifests, receipts, and hourly Merkle anchors are
-   written to a B2 bucket with **Object Lock in compliance mode** —
-   write-once-read-many. Not the operator, not a hacker with the keys, not
-   Backblaze support can alter or delete them until retention expires.
-3. **Recoverable from abuse.** Alongside SHA-256, every image gets a
-   perceptual hash. The public verify page accepts a cropped, re-compressed,
-   screenshotted copy and still resurrects its full birth certificate via
-   Hamming-distance lookup.
-4. **The pipeline is the audit trail.** Genblaze orchestrates
-   generate → judge → retry → narrate → seal across the configured AI stack
-   (Google Gemini by default, GMI Cloud selectable) and ElevenLabs.
-   Every step — including the attempts the judge rejected — is a signed,
-   locked receipt. The vault remembers what the pipeline *didn't* choose,
-   and why.
-5. **Exportable.** One click produces a signed archive of the entire vault —
-   assets, manifests, receipts, Merkle proofs, and an offline `verify.py`
-   that checks all of it without this service existing.
+```mermaid
+flowchart TD
+    A[Prompt in the studio] --> B[Generate image<br>Gemini or GMI Cloud]
+    B --> C{Vision judge<br>score at least 70?}
+    C -- "no, retry up to 2x with judge notes" --> B
+    C -- yes --> D[Narrate the scene<br>ElevenLabs TTS, optional]
+    D --> E[Seal: Ed25519-signed manifest,<br>SHA-256 + perceptual hash]
 
-## Stack
+    B -. signed receipt per attempt .-> V
+    C -. signed receipt per verdict .-> V
+    D -. signed receipt .-> V
+    E --> V
+    E --> M
 
-- **Backend:** Python 3.11, FastAPI, Genblaze SDK
-  (`genblaze[google,gmicloud,elevenlabs]`), boto3 against B2's S3-compatible
-  API, `imagehash`, `cryptography` (Ed25519), SQLite for the fingerprint index.
-- **AI providers:** `AI_PROVIDER=google` (default) runs image generation, the
-  vision judge, and narration text on Gemini — a free AI Studio key works.
-  `AI_PROVIDER=gmicloud` switches all three to GMI Cloud. ElevenLabs narrates
-  either way (free tier is enough).
-- **Frontend:** Vite + React + TypeScript, Tailwind. Signatures and Merkle
-  inclusion proofs are re-verified **in the browser** — don't trust the
-  server, check the math yourself.
-- **Storage:** three B2 buckets — `assets` (media + thumbnails), `vault`
-  (Object Lock COMPLIANCE: manifests, receipts, anchors), `state` (resumable
-  run state, exports).
+    subgraph B2 [Backblaze B2]
+        M[litmus-assets<br>originals, thumbnails, narration]
+        V[litmus-vault, Object Lock COMPLIANCE<br>manifests, hash-chained receipts, Merkle anchors]
+        S[litmus-state<br>resumable run state, exports]
+    end
 
-## Setup from zero
+    U[Anyone drops a file on /verify] --> W{SHA-256<br>exact match?}
+    W -- yes --> X[Verified, original file]
+    W -- no --> Y{Perceptual hash within<br>10 of 64 bits?}
+    Y -- yes --> Z[Verified, modified copy,<br>similarity shown]
+    Y -- no --> N[No record found]
+    X --> BC[Full birth certificate: prompt, model,<br>receipts, lineage, Merkle proof]
+    Z --> BC
+```
+
+Receipts are hash-chained per run and sealed with a compliance lock the moment each step completes, including failures. Run state persists to B2 after every transition, so a killed server resumes its runs on restart, and the SQLite fingerprint index rebuilds itself from the vault. Hourly Merkle anchors bind all new manifests into one locked root object.
+
+## Why use it?
+
+- Provenance that survives the screenshot. Metadata dies at the first re-encode; the perceptual fingerprint does not.
+- An audit trail of decisions, including the attempts the judge threw away and why.
+- Tamper-proofing that is a storage property, verified live: deleting a locked receipt version returns `AccessDenied`.
+- Your history is portable. The export verifies offline, forever.
+
+Verification quality depends on the fingerprint: heavy crops, mirrors, and rotations can defeat the perceptual hash, and the bit-for-bit claim is only ever made on an exact hash plus signature match.
+
+## Install
 
 ```bash
-# 0. Accounts: Backblaze B2 + ElevenLabs (free tier) + a Gemini API key
-#    (free at https://aistudio.google.com/apikey). Create a B2 application key.
-
-# 1. Python env
+git clone https://github.com/fozagtx/litmus && cd litmus
 python3.11 -m venv .venv && source .venv/bin/activate
 pip install -r server/requirements.txt
-
-# 2. Configure
-cp .env.example .env      # fill in B2 + provider keys, pick bucket names
-
-# 3. Keys and buckets
-python scripts/gen_keys.py          # Ed25519 signing keypair
-python scripts/create_buckets.py    # creates buckets; vault gets Object Lock
-                                    # (COMPLIANCE) at creation — irreversible
-python scripts/check_providers.py   # validates your model slugs against the
-                                    # live GMI / ElevenLabs catalogs
-
-# 4. Run
-uvicorn server.main:app --port 8000
-cd web && npm install && npm run dev   # dev UI on :5173, proxies /api to :8000
-
-# Production: npm run build, then the FastAPI server serves web/dist itself.
+cp .env.example .env        # fill in keys, see Configuration
+python scripts/gen_keys.py  # Ed25519 signing keypair
 ```
 
-Docker: `docker build -t litmus . && docker run --env-file .env -p 8000:8000 litmus`
+Requires Python 3.11+ and Node 20+ for the frontend.
 
-## Verifying without us
+## Quick start
 
-Every export zip contains `verify.py`. Offline, it re-hashes every asset,
-checks every Ed25519 signature, re-links every receipt chain, and recomputes
-every Merkle root against the sealed anchors:
+Full setup from a fresh B2 account, using the master key once to bootstrap:
 
 ```bash
-python verify.py            # → N/N records verified
+# .env: set B2_MASTER_KEY_ID + B2_MASTER_APP_KEY, GEMINI_API_KEY, ELEVENLABS_API_KEY
+python scripts/bootstrap_b2.py     # creates the 3 buckets (vault locked), mints a scoped runtime key
+python scripts/check_providers.py  # validates your model slugs against live catalogs
+uvicorn server.main:app --port 8000
+cd web && npm install && npm run dev   # UI on :5173, proxies /api to :8000
 ```
 
-## Honest limitations
+Already have buckets and a scoped application key:
 
-- **Compliance lock is irreversible.** A bug that writes garbage to the vault
-  means garbage locked for the retention period. We schema-validate before
-  every locked write and run 7-day retention for the demo; production should
-  use 365+ days and a governance-mode staging bucket.
-- **Perceptual hashing has limits.** Heavy crops (>60%), mirrors, and
-  rotations can defeat pHash; distinct-but-similar images can collide at loose
-  thresholds. The threshold is conservative (≤10/64 bits), matches are
-  reported with a similarity percentage rather than a binary yes, and the
-  bit-for-bit claim is only ever made on an exact SHA-256 + signature match.
-- **The trust root is the service signing key.** v1 proves *this service*
-  sealed a record at time T — tamper-evident notarization, not identity
-  attestation of the human behind the account. Per-user keys are schema'd
-  (`creator_pubkey`) and on the roadmap.
-- **Absence isn't evidence.** "No record found" never means "this file is
-  fake" — only that it wasn't sealed here. The UI copy enforces this.
-- **Merkle anchoring is operator-computed.** Locked receipts make retroactive
-  edits impossible, but pre-seal manipulation is a trust gap until roots are
-  published externally (a public transparency log is the roadmap fix).
-- **Public verify endpoint.** Uploads are capped at 25 MB, rate-limited by
-  IP, and never stored.
-- **Prompts are public.** Manifests are designed to be shown to verifiers;
-  anyone who verifies an asset can read its prompt. The studio says so before
-  you generate.
+```bash
+# .env: set B2_REGION, B2_KEY_ID, B2_APP_KEY, bucket names, provider keys
+python scripts/create_buckets.py   # idempotent, verifies the vault lock
+uvicorn server.main:app --port 8000
+```
 
-## Roadmap
+Docker, serving the built frontend from the same process:
 
-Style capsules (generate with someone's creative memory, provenance-credited) →
-C2PA embedding + per-user keys → video pipeline + embedding-based verify at
-scale → team vaults with Event-Notification-driven auto-sealing.
+```bash
+docker build -t litmus .
+docker run --env-file .env -p 8000:8000 litmus
+```
+
+## Configuration
+
+All configuration is environment variables, loaded from `.env`. Missing values surface as honest 503s naming the variable, never as fake output.
+
+- `AI_PROVIDER` selects the inference stack for image generation, the judge, and narration text: `google` (Gemini, a free AI Studio key covers all three) or `gmicloud` (GMI Cloud).
+- `GEMINI_API_KEY` or `GMI_API_KEY` to match, plus `ELEVENLABS_API_KEY` for narration.
+- `IMAGE_MODEL`, `JUDGE_MODEL`, `NARRATION_TEXT_MODEL`, `TTS_MODEL` override the per-provider defaults; leave blank to use them.
+- `B2_REGION`, `B2_KEY_ID`, `B2_APP_KEY`, `B2_ASSETS_BUCKET`, `B2_VAULT_BUCKET`, `B2_STATE_BUCKET` point at your buckets.
+- `VAULT_RETENTION_DAYS` sets the compliance retention (7 for the demo; raise for production; irreversible per object once written).
+- `JUDGE_THRESHOLD`, `MAX_ATTEMPTS`, `PHASH_MAX_DISTANCE` tune the loop and matcher.
+
+## Useful commands
+
+```text
+python scripts/gen_keys.py          generate the Ed25519 signing keypair
+python scripts/bootstrap_b2.py      one-shot account setup from the master key
+python scripts/create_buckets.py    create/verify buckets with a scoped key
+python scripts/check_providers.py   validate model slugs against live catalogs
+python scripts/reindex.py           rebuild the fingerprint index from the vault
+python scripts/smoke_local.py       offline test suite, no network
+bash scripts/railway_env.sh         push .env to a linked Railway service
+```
+
+## Important limits
+
+- Compliance lock is irreversible. Every object is schema-validated and signed before a locked write, because a mistake cannot be deleted for the retention period.
+- "No record found" never means a file is fake. It means this vault did not seal it. The UI copy enforces this.
+- The trust root is the service signing key: v1 proves this service sealed a record at a time, which is tamper-evident notarization, not identity attestation of the human. Per-user keys are schema'd for the roadmap.
+- Merkle roots are computed by the operator. Locked receipts make retroactive edits impossible; publishing roots externally is the roadmap fix for pre-seal trust.
+- The public verify endpoint caps uploads at 25 MB, rate-limits by IP, and never stores uploaded files.
+- Prompts are public by design: anyone who verifies an asset can read its prompt, and the studio says so before you generate.
+- Audio verification is exact-hash only in v1.
+
+## Development
+
+```bash
+python scripts/smoke_local.py            # signing, fingerprint, Merkle, index, chains
+python -m compileall server scripts      # syntax gate
+cd web && npx tsc --noEmit && npm run build
+```
+
+Deployed on Railway from the Dockerfile: `railway up --service litmus`, with `scripts/railway_env.sh` pushing runtime variables, including the signing key as `SIGNING_KEY_B64` for ephemeral disks.
