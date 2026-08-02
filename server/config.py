@@ -114,10 +114,13 @@ def signing_key_path() -> Path:
 
 _MODEL_DEFAULTS: dict[str, dict[str, str]] = {
     "google": {
-        "IMAGE_MODEL": "gemini-2.5-flash-image",
-        "IMAGE_FALLBACK_MODELS": "",
-        "JUDGE_MODEL": "gemini-2.5-flash",
-        "NARRATION_TEXT_MODEL": "gemini-2.5-flash",
+        # 2.5-generation models 404 for accounts created after the 3.x
+        # rollout; these are the current stable slugs (scripts/check_providers.py
+        # validates against the live catalog).
+        "IMAGE_MODEL": "gemini-3.1-flash-image",
+        "IMAGE_FALLBACK_MODELS": "gemini-2.5-flash-image",
+        "JUDGE_MODEL": "gemini-3.6-flash",
+        "NARRATION_TEXT_MODEL": "gemini-3.6-flash",
     },
     "gmicloud": {
         "IMAGE_MODEL": "seedream-4-0",
