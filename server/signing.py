@@ -78,8 +78,31 @@ def generate_keypair(path: Path) -> Ed25519PrivateKey:
 
 
 def _load_private_key() -> Ed25519PrivateKey:
-    """Load (and cache) the Ed25519 private key from SIGNING_KEY_PATH."""
+    """Load (and cache) the Ed25519 private key.
+
+    SIGNING_KEY_B64 (base64 of the PEM file) wins when set — this is how the
+    key travels to PaaS deploys with ephemeral disks. Falls back to the file
+    at SIGNING_KEY_PATH.
+    """
     global _private_key, _loaded_from
+    env_pem = os.environ.get("SIGNING_KEY_B64", "").strip()
+    if env_pem:
+        with _lock:
+            if _private_key is not None and _loaded_from == Path("<env:SIGNING_KEY_B64>"):
+                return _private_key
+            try:
+                key = serialization.load_pem_private_key(
+                    base64.b64decode(env_pem), password=None
+                )
+            except Exception as exc:
+                raise ConfigError(
+                    f"SIGNING_KEY_B64 is set but not a base64-encoded Ed25519 PEM: {exc}"
+                ) from exc
+            if not isinstance(key, Ed25519PrivateKey):
+                raise ConfigError("SIGNING_KEY_B64 is not an Ed25519 private key.")
+            _private_key = key
+            _loaded_from = Path("<env:SIGNING_KEY_B64>")
+            return key
     path = signing_key_path()
     with _lock:
         if _private_key is not None and _loaded_from == path:
