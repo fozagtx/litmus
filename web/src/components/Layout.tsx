@@ -42,15 +42,17 @@ export function Layout() {
           <p>Built on Backblaze B2 Object Lock and the Genblaze pipeline SDK.</p>
           <div className="flex items-center gap-4">
             <a
-              href="#"
-              title="repo link added at submission"
+              href="https://github.com/fozagtx/litmus"
+              target="_blank"
+              rel="noreferrer"
               className="transition-colors duration-150 ease-out hover:text-ink"
             >
               GitHub
             </a>
             <a
-              href="#"
-              title="doc link added at submission"
+              href="https://github.com/fozagtx/litmus#how-it-works"
+              target="_blank"
+              rel="noreferrer"
               className="transition-colors duration-150 ease-out hover:text-ink"
             >
               How sealing works
