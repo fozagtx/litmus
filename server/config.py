@@ -220,5 +220,6 @@ def require(subsystem: str) -> None:
         raise ConfigError(
             f"{subsystem} is not configured: missing environment variable"
             f"{'s' if len(missing) > 1 else ''} {', '.join(missing)}. "
-            f"Set {'them' if len(missing) > 1 else 'it'} in {PROJECT_ROOT / '.env'} and restart."
+            f"Set {'them' if len(missing) > 1 else 'it'} in .env (local) or the "
+            "deployment's environment variables, then restart."
         )
