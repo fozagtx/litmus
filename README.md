@@ -2,7 +2,6 @@
 
 A generation studio where every AI asset is born with a signed birth certificate, sealed in write-once storage, and verifiable even from a cropped screenshot.
 
-Live app: https://litmus-production-262d.up.railway.app
 Built for the Backblaze Generative Media Hackathon on Backblaze B2 Object Lock and the Genblaze pipeline SDK.
 
 ## What is it?
@@ -139,4 +138,4 @@ python -m compileall server scripts      # syntax gate
 cd web && npx tsc --noEmit && npm run build
 ```
 
-Deployed on Railway from the Dockerfile: `railway up --service litmus`, with `scripts/railway_env.sh` pushing runtime variables, including the signing key as `SIGNING_KEY_B64` for ephemeral disks.
+The Dockerfile builds the frontend and serves it from the FastAPI process on one port, so it deploys to any container host. `SIGNING_KEY_B64` carries the signing key on hosts with ephemeral disks.
