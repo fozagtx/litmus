@@ -72,26 +72,32 @@ app.include_router(media.router)
 
 # --- health & keys ----------------------------------------------------------
 
-def _check_gmi() -> tuple[bool, str]:
-    key = config.gmi_api_key()
+def _check_ai_provider() -> tuple[bool, str]:
+    provider = config.ai_provider()
+    key_env = config.ai_key_env()
+    key = config.gemini_api_key() if provider == "google" else config.gmi_api_key()
     if not key:
-        return False, "missing env var: GMI_API_KEY"
+        return False, f"missing env var: {key_env} (AI_PROVIDER={provider})"
+    if provider == "google":
+        url = "https://generativelanguage.googleapis.com/v1beta/models"
+        headers = {"x-goog-api-key": key}
+        display = "Google Gemini"
+    else:
+        url = "https://api.gmi-serving.com/v1/models"
+        headers = {"Authorization": f"Bearer {key}"}
+        display = "GMI Cloud"
     try:
-        resp = httpx.get(
-            "https://api.gmi-serving.com/v1/models",
-            headers={"Authorization": f"Bearer {key}"},
-            timeout=8.0,
-        )
+        resp = httpx.get(url, headers=headers, timeout=8.0)
         if resp.status_code == 200:
-            return True, "GMI Cloud reachable, key accepted"
-        if resp.status_code in (401, 403):
-            return False, f"GMI Cloud rejected the API key (HTTP {resp.status_code})"
+            return True, f"{display} reachable, key accepted"
+        if resp.status_code in (400, 401, 403):
+            return False, f"{display} rejected the API key (HTTP {resp.status_code})"
         return True, (
             f"key set; catalog endpoint returned HTTP {resp.status_code} — "
             "run scripts/check_providers.py for a live model check"
         )
     except Exception as exc:
-        return False, f"GMI Cloud unreachable: {exc}"
+        return False, f"{display} unreachable: {exc}"
 
 
 def _check_elevenlabs() -> tuple[bool, str]:
@@ -125,11 +131,11 @@ async def health() -> dict[str, Any]:
         run(lambda: b2.health_check("assets")),
         run(lambda: b2.health_check("vault")),
         run(lambda: b2.health_check("state")),
-        run(_check_gmi),
+        run(_check_ai_provider),
         run(_check_elevenlabs),
         run(signing_key_available),
     )
-    names = ["b2_assets", "b2_vault", "b2_state", "gmi", "elevenlabs", "signing_key"]
+    names = ["b2_assets", "b2_vault", "b2_state", "ai", "elevenlabs", "signing_key"]
     checks = {n: {"ok": ok, "detail": detail} for n, (ok, detail) in zip(names, results)}
     return {"ok": all(c["ok"] for c in checks.values()), "checks": checks}
 
@@ -167,7 +173,7 @@ def _require_or_503(*subsystems: str) -> None:
 
 @app.post("/api/generate", status_code=202)
 def generate(body: GenerateBody) -> dict[str, str]:
-    subsystems = ["b2_assets", "b2_vault", "b2_state", "gmi"]
+    subsystems = ["b2_assets", "b2_vault", "b2_state", "ai"]
     if body.narration:
         subsystems.append("elevenlabs")
     _require_or_503(*subsystems)

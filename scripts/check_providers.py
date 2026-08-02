@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Validate the configured models against the LIVE provider catalogs.
 
-Requires real GMI_API_KEY / ELEVENLABS_API_KEY. Checks:
-  - IMAGE_MODEL + IMAGE_FALLBACK_MODELS via GMICloudImageProvider.validate_model
+Requires the active AI provider key (GEMINI_API_KEY or GMI_API_KEY, per
+AI_PROVIDER) plus ELEVENLABS_API_KEY. Checks:
+  - IMAGE_MODEL + IMAGE_FALLBACK_MODELS via the provider's validate_model
   - JUDGE_MODEL and NARRATION_TEXT_MODEL via a 1-token chat ping
   - TTS_MODEL via ElevenLabs catalog discovery / validate_model
 
-Use this to discover valid GMI slugs when the defaults are off.
+Use this to discover valid model slugs when the defaults are off.
 """
 
 from __future__ import annotations
@@ -28,9 +29,9 @@ def add(role: str, model: str, ok: bool | None, detail: str) -> None:
 
 
 def check_image_models() -> None:
-    from genblaze_gmicloud.image import GMICloudImageProvider
+    from server import providers as litmus_providers
 
-    provider = GMICloudImageProvider()
+    provider = litmus_providers.image_provider()
     models = [config.image_model()] + config.image_fallback_models()
     roles = ["IMAGE_MODEL"] + [
         f"IMAGE_FALLBACK_MODELS[{i}]" for i in range(len(models) - 1)
@@ -53,11 +54,11 @@ def check_image_models() -> None:
 
 
 def check_chat_model(role: str, model: str) -> None:
-    from genblaze_gmicloud.chat import chat
+    from server import providers as litmus_providers
 
     try:
-        resp = chat(model, prompt="ping", max_tokens=1, timeout=30.0)
-        add(role, model, True, f"chat ping ok (finish_reason={resp.finish_reason})")
+        litmus_providers.provider_chat(model, prompt="ping")
+        add(role, model, True, "chat ping ok")
     except Exception as exc:  # noqa: BLE001
         add(role, model, False, str(exc))
 
@@ -82,13 +83,14 @@ def check_tts_model() -> None:
 
 def main() -> int:
     hard_fail = False
+    provider_label = config.ai_provider().upper()
     try:
-        config.require("gmi")
+        config.require("ai")
         check_image_models()
         check_chat_model("JUDGE_MODEL", config.judge_model())
         check_chat_model("NARRATION_TEXT_MODEL", config.narration_text_model())
     except ConfigError as exc:
-        add("GMI", "-", False, str(exc))
+        add(provider_label, "-", False, str(exc))
         hard_fail = True
 
     try:

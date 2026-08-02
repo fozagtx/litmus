@@ -69,8 +69,29 @@ def state_bucket() -> str | None:
 
 # --- Providers --------------------------------------------------------------
 
+_AI_PROVIDERS = ("google", "gmicloud")
+
+
+def ai_provider() -> str:
+    """Which inference stack powers image gen + judge + narration text.
+
+    "google" (Gemini, default — free-tier API key from AI Studio) or
+    "gmicloud" (the hackathon partner cloud, needs GMI credits).
+    """
+    value = (_env("AI_PROVIDER", "google") or "google").strip().lower()
+    if value not in _AI_PROVIDERS:
+        raise ConfigError(
+            f"AI_PROVIDER must be one of {', '.join(_AI_PROVIDERS)}; got {value!r}"
+        )
+    return value
+
+
 def gmi_api_key() -> str | None:
     return _env("GMI_API_KEY")
+
+
+def gemini_api_key() -> str | None:
+    return _env("GEMINI_API_KEY")
 
 
 def elevenlabs_api_key() -> str | None:
@@ -91,21 +112,43 @@ def signing_key_path() -> Path:
     return p
 
 
+_MODEL_DEFAULTS: dict[str, dict[str, str]] = {
+    "google": {
+        "IMAGE_MODEL": "gemini-2.5-flash-image",
+        "IMAGE_FALLBACK_MODELS": "",
+        "JUDGE_MODEL": "gemini-2.5-flash",
+        "NARRATION_TEXT_MODEL": "gemini-2.5-flash",
+    },
+    "gmicloud": {
+        "IMAGE_MODEL": "seedream-4-0",
+        "IMAGE_FALLBACK_MODELS": "flux-kontext-pro",
+        "JUDGE_MODEL": "Qwen/Qwen2.5-VL-72B-Instruct",
+        "NARRATION_TEXT_MODEL": "deepseek-ai/DeepSeek-V3",
+    },
+}
+
+
+def _model_default(name: str) -> str:
+    return _MODEL_DEFAULTS[ai_provider()][name]
+
+
 def image_model() -> str:
-    return _env("IMAGE_MODEL", "seedream-4-0")  # type: ignore[return-value]
+    return _env("IMAGE_MODEL", _model_default("IMAGE_MODEL"))  # type: ignore[return-value]
 
 
 def image_fallback_models() -> list[str]:
-    raw = _env("IMAGE_FALLBACK_MODELS", "flux-kontext-pro")
+    raw = _env("IMAGE_FALLBACK_MODELS", _model_default("IMAGE_FALLBACK_MODELS")) or ""
     return [m.strip() for m in raw.split(",") if m.strip()]
 
 
 def judge_model() -> str:
-    return _env("JUDGE_MODEL", "Qwen/Qwen2.5-VL-72B-Instruct")  # type: ignore[return-value]
+    return _env("JUDGE_MODEL", _model_default("JUDGE_MODEL"))  # type: ignore[return-value]
 
 
 def narration_text_model() -> str:
-    return _env("NARRATION_TEXT_MODEL", "deepseek-ai/DeepSeek-V3")  # type: ignore[return-value]
+    return _env(
+        "NARRATION_TEXT_MODEL", _model_default("NARRATION_TEXT_MODEL")
+    )  # type: ignore[return-value]
 
 
 def tts_model() -> str:
@@ -148,13 +191,22 @@ REQUIRED_BY_SUBSYSTEM: dict[str, tuple[str, ...]] = {
     "b2_assets": _B2_COMMON + ("B2_ASSETS_BUCKET",),
     "b2_vault": _B2_COMMON + ("B2_VAULT_BUCKET",),
     "b2_state": _B2_COMMON + ("B2_STATE_BUCKET",),
-    "gmi": ("GMI_API_KEY",),
     "elevenlabs": ("ELEVENLABS_API_KEY",),
 }
+
+_AI_KEY_BY_PROVIDER = {"google": "GEMINI_API_KEY", "gmicloud": "GMI_API_KEY"}
+
+
+def ai_key_env() -> str:
+    """The API-key env var name for the active AI_PROVIDER."""
+    return _AI_KEY_BY_PROVIDER[ai_provider()]
 
 
 def missing_for(subsystem: str) -> list[str]:
     """Return the list of missing env vars for a subsystem (empty when complete)."""
+    if subsystem == "ai":
+        # Resolved dynamically: which key is required depends on AI_PROVIDER.
+        return [] if _env(ai_key_env()) is not None else [ai_key_env()]
     names = REQUIRED_BY_SUBSYSTEM.get(subsystem)
     if names is None:
         raise ValueError(f"Unknown subsystem {subsystem!r}")

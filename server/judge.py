@@ -21,7 +21,6 @@ import json
 import logging
 from typing import Any
 
-import httpx
 from genblaze import EvaluationResult, Evaluator
 from pydantic import BaseModel, Field
 
@@ -48,18 +47,17 @@ class JudgeError(RuntimeError):
 
 
 def download_image(url: str, timeout: float = 60.0) -> tuple[bytes, str]:
-    """Fetch image bytes from a remote URL or decode a data: URL.
+    """Fetch image bytes from wherever the provider put them.
 
-    Returns (bytes, content_type).
+    Remote URL (GMI), local file / file:// URI (Gemini writes to disk), or
+    data: URL. Returns (bytes, content_type).
     """
-    if url.startswith("data:"):
-        header, _, payload = url.partition(",")
-        media = header[len("data:"):].split(";")[0] or "image/png"
-        return base64.b64decode(payload), media
-    resp = httpx.get(url, timeout=timeout, follow_redirects=True)
-    resp.raise_for_status()
-    content_type = resp.headers.get("content-type", "image/png").split(";")[0]
-    return resp.content, content_type
+    from server import providers
+
+    data, media = providers.read_asset_bytes(url, timeout=timeout)
+    if media == "application/octet-stream":
+        media = "image/png"
+    return data, media
 
 
 class LitmusJudge(Evaluator):
@@ -132,36 +130,27 @@ class LitmusJudge(Evaluator):
         )
 
     def _score(self, image_bytes: bytes, content_type: str) -> JudgeVerdict:
-        from genblaze_gmicloud.chat import chat
+        from server import providers
 
         data_url = (
             f"data:{content_type};base64,{base64.b64encode(image_bytes).decode('ascii')}"
         )
-        messages = [
-            {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"The brief:\n{self.brief_prompt}",
-                    },
-                    {"type": "image_url", "image_url": {"url": data_url}},
-                ],
-            },
-        ]
+        message = providers.vision_message(
+            f"The brief:\n{self.brief_prompt}", data_url
+        )
         try:
-            resp = chat(
+            text = providers.provider_chat(
                 config.judge_model(),
-                messages=messages,
-                response_format=JudgeVerdict,
+                messages=[message],
+                system=JUDGE_SYSTEM_PROMPT,
                 temperature=0,
-                timeout=120.0,
+                force_json=True,
+                response_format=JudgeVerdict,
             )
         except Exception as exc:
             raise JudgeError(f"Judge model call failed: {exc}") from exc
 
-        text = (resp.text or "").strip()
+        text = text.strip()
         try:
             payload = json.loads(_strip_code_fences(text))
             return JudgeVerdict.model_validate(payload)

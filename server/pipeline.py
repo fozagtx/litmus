@@ -22,7 +22,7 @@ from urllib.parse import unquote, urlparse
 
 from PIL import Image
 
-from server import b2, config, index
+from server import b2, config, index, providers
 from server import runstate as rs
 from server.fingerprint import phash64, sha256_hex
 from server.judge import JudgeError, LitmusJudge
@@ -42,10 +42,12 @@ NARRATION_TEMPLATE = """Write a single spoken sentence (max 22 words) describing
 for a gallery placard, neutral documentary tone: "{original_prompt}\""""
 
 # PRD §8.6 error surfaces.
-PROVIDER_DOWN_COPY = (
-    "GMI Cloud isn't responding. We retried once and logged the failure to "
-    "your receipt chain. Try again, or switch providers in options."
-)
+def provider_down_copy() -> str:
+    name = "Google Gemini" if config.ai_provider() == "google" else "GMI Cloud"
+    return (
+        f"{name} isn't responding. We retried once and logged the failure to "
+        "your receipt chain. Try again, or switch providers in options."
+    )
 ELEVENLABS_DOWN_COPY = (
     "ElevenLabs isn't responding. We logged the failure to your receipt "
     "chain. The image asset was sealed; retry narration with a new run."
@@ -137,9 +139,16 @@ def _attempt_prompt(original_prompt: str, attempt: int, prior_reasons: list[str]
 
 def _step_label(name: str, attempt: int, model: str) -> str:
     if name == "generate":
+        provider_display = (
+            "Google Gemini" if config.ai_provider() == "google" else "GMI Cloud"
+        )
         if attempt == 0:
-            return f"Generate image — GMI Cloud / {model}"
-        return f"Retry {attempt} of {config.max_attempts() - 1} — seed changed, judge notes applied"
+            return f"Generate image — {provider_display} / {model}"
+        retries = f"Retry {attempt} of {config.max_attempts() - 1}"
+        # The seed only changes on providers that honor one; don't claim it did.
+        if config.ai_provider() == "gmicloud":
+            return f"{retries} — seed changed, judge notes applied"
+        return f"{retries} — judge notes applied"
     if name == "judge":
         return "Judge — scoring against your prompt"
     if name == "narrate":
@@ -204,8 +213,9 @@ def _fail_run(run_id: str, exc: Exception) -> None:
         return
     copy = GENERIC_COPY
     text = str(exc)
-    if "GMI" in text or "gmicloud" in text.lower():
-        copy = PROVIDER_DOWN_COPY
+    lowered = text.lower()
+    if any(k in lowered for k in ("gmi", "gmicloud", "gemini", "google")):
+        copy = provider_down_copy()
     elif "elevenlabs" in text.lower():
         copy = ELEVENLABS_DOWN_COPY
 
@@ -310,9 +320,8 @@ def _run(run_id: str) -> None:
 def _generation_loop(run_id: str, entry: rs.RunEntry, prompt: str) -> str:
     """Run the generate→judge AgentLoop. Returns "ok" or "failed"."""
     from genblaze import AgentContext, AgentLoop, Modality, Pipeline, StepType
-    from genblaze_gmicloud.image import GMICloudImageProvider
 
-    config.require("gmi")
+    config.require("ai")
     internal = entry.internal
     state = entry.state
     max_attempts = config.max_attempts()
@@ -326,7 +335,7 @@ def _generation_loop(run_id: str, entry: rs.RunEntry, prompt: str) -> str:
         carried_reasons = internal["attempts"][-1].get("reasons", [])
 
     judge = LitmusJudge(prompt)
-    provider = GMICloudImageProvider()
+    provider = providers.image_provider()
     attempt_meta: dict[int, dict[str, Any]] = {}
 
     def factory(ctx: AgentContext) -> Pipeline:
@@ -338,7 +347,14 @@ def _generation_loop(run_id: str, entry: rs.RunEntry, prompt: str) -> str:
         else:
             reasons = []
         step_prompt = _attempt_prompt(prompt, attempt, reasons)
-        seed = base_seed + attempt
+        # Only record params the active provider actually honors — a seed in
+        # a sealed receipt that the model never saw would be false provenance.
+        if config.ai_provider() == "gmicloud":
+            seed = base_seed + attempt
+            step_params: dict[str, Any] = {"seed": seed, "size": "1024x1024"}
+        else:
+            seed = None
+            step_params = {}
         attempt_meta[attempt] = {"prompt": step_prompt, "seed": seed}
         p = Pipeline("litmus-image", preflight=False)
         p.step(
@@ -348,7 +364,7 @@ def _generation_loop(run_id: str, entry: rs.RunEntry, prompt: str) -> str:
             prompt=step_prompt,
             modality=Modality.IMAGE,
             step_type=StepType.GENERATE,
-            params={"seed": seed, "size": "1024x1024"},
+            params=step_params,
         )
         return p
 
@@ -367,7 +383,7 @@ def _generation_loop(run_id: str, entry: rs.RunEntry, prompt: str) -> str:
                 def add_gen(s, i, attempt=attempt, model=model):
                     _add_step(
                         s, i, "generate", _step_label("generate", attempt, model),
-                        "gmicloud-image", model, "running", {"attempt": attempt},
+                        providers.image_provider_label(), model, "running", {"attempt": attempt},
                     )
 
                 rs.mutate(run_id, add_gen)
@@ -407,7 +423,7 @@ def _process_iteration(
     if rec["pipeline_failed"]:
         error = rec["error"] or "unknown provider failure"
         step_obj = result.run.steps[0] if result.run.steps else None
-        provider_name = (step_obj.provider if step_obj else None) or "gmicloud-image"
+        provider_name = (step_obj.provider if step_obj else None) or providers.image_provider_label()
         model_name = step_obj.model if step_obj else config.image_model()
         key, digest = _seal_receipt(
             run_id, internal, "failure", provider_name, model_name,
@@ -426,7 +442,7 @@ def _process_iteration(
                     _finish_step(st, "failed", key, digest, {"error": error[:500]})
                     break
             s.status = "failed"
-            s.error = PROVIDER_DOWN_COPY
+            s.error = provider_down_copy()
 
         rs.mutate(run_id, apply_fail)
         return "pipeline_failed"
@@ -444,7 +460,7 @@ def _process_iteration(
     b2.put_bytes("assets", thumb_key, _make_thumb(image_bytes), "image/webp")
 
     gen_key, gen_digest = _seal_receipt(
-        run_id, internal, "generate", step_obj.provider or "gmicloud-image",
+        run_id, internal, "generate", step_obj.provider or providers.image_provider_label(),
         step_obj.model,
         _detail_sha({"prompt": prompt_used, "params": {"seed": seed, "size": "1024x1024"}}),
         sha,
@@ -456,7 +472,7 @@ def _process_iteration(
     reasons: list[str] = rec["reasons"]
     passed = score >= config.judge_threshold()
     judge_key, judge_digest = _seal_receipt(
-        run_id, internal, "judge", "gmicloud", config.judge_model(),
+        run_id, internal, "judge", providers.chat_provider_label(), config.judge_model(),
         sha,
         _detail_sha({"score": score, "reasons": reasons}),
         {"score": score, "reasons": reasons, "attempt": attempt},
@@ -482,7 +498,7 @@ def _process_iteration(
                 "prompt_used": prompt_used,
                 "seed": seed,
                 "model": step_obj.model,
-                "provider": step_obj.provider or "gmicloud-image",
+                "provider": step_obj.provider or providers.image_provider_label(),
                 "score": score,
                 "reasons": reasons,
                 "passed": passed,
@@ -504,7 +520,7 @@ def _process_iteration(
         judge_status = "passed" if passed else ("discarded" if is_last_attempt else "retried")
         judge_step = _add_step(
             s, i, "judge", _step_label("judge", attempt, config.judge_model()),
-            "gmicloud", config.judge_model(), "running", {"attempt": attempt},
+            providers.chat_provider_label(), config.judge_model(), "running", {"attempt": attempt},
         )
         _finish_step(
             judge_step, judge_status, judge_key, judge_digest,
@@ -536,10 +552,10 @@ def _handle_judge_crash(
         image_bytes = rec["image_bytes"]
         sha = sha256_hex(image_bytes)
         _seal_receipt(
-            run_id, internal, "generate", "gmicloud-image", config.image_model(),
+            run_id, internal, "generate", providers.image_provider_label(), config.image_model(),
             _detail_sha({"prompt": prompt_used, "params": {"seed": seed, "size": "1024x1024"}}),
             sha,
-            {"model": config.image_model(), "provider": "gmicloud-image",
+            {"model": config.image_model(), "provider": providers.image_provider_label(),
              "seed": seed, "attempt": attempt, "note": "judge failed after generation"},
         )
         out_sha = sha
@@ -547,10 +563,10 @@ def _handle_judge_crash(
         out_sha = _detail_sha({"error": str(exc)})
 
     key, digest = _seal_receipt(
-        run_id, internal, "failure", "gmicloud", config.judge_model(),
+        run_id, internal, "failure", providers.chat_provider_label(), config.judge_model(),
         out_sha,
         _detail_sha({"error": str(exc)}),
-        {"step": "judge", "error": str(exc)[:2000], "provider": "gmicloud",
+        {"step": "judge", "error": str(exc)[:2000], "provider": providers.chat_provider_label(),
          "attempt": attempt},
     )
 
@@ -559,7 +575,7 @@ def _handle_judge_crash(
             if st.status == "running":
                 _finish_step(st, "failed", key, digest, {"error": str(exc)[:500]})
         s.status = "failed"
-        s.error = PROVIDER_DOWN_COPY
+        s.error = provider_down_copy()
 
     rs.mutate(run_id, apply)
 
@@ -573,9 +589,8 @@ class _NarrationError(RuntimeError):
 def _narrate(run_id: str, entry: rs.RunEntry, final: dict[str, Any]) -> None:
     from genblaze import Modality, Pipeline, StepType
     from genblaze_elevenlabs import ElevenLabsTTSProvider
-    from genblaze_gmicloud.chat import chat
 
-    config.require("gmi")
+    config.require("ai")
     config.require("elevenlabs")
     internal = entry.internal
     state = entry.state
@@ -590,20 +605,18 @@ def _narrate(run_id: str, entry: rs.RunEntry, final: dict[str, Any]) -> None:
     rs.mutate(run_id, add_narrate)
 
     try:
-        resp = chat(
+        sentence = providers.provider_chat(
             config.narration_text_model(),
             prompt=NARRATION_TEMPLATE.format(original_prompt=narration_source),
             temperature=0.4,
-            timeout=90.0,
-        )
-        sentence = (resp.text or "").strip().strip('"').strip()
+        ).strip().strip('"').strip()
         if not sentence:
             raise RuntimeError(
                 f"{config.narration_text_model()} returned an empty narration sentence"
             )
     except Exception as exc:
         _narration_failed(run_id, entry, f"narration text generation failed: {exc}",
-                          provider="gmicloud", model=config.narration_text_model())
+                          provider=providers.chat_provider_label(), model=config.narration_text_model())
         raise _NarrationError(str(exc)) from exc
 
     with tempfile.TemporaryDirectory(prefix="litmus-tts-") as tmpdir:

@@ -204,3 +204,17 @@ sink.close()
 7. GMI image asset URL is remote until transferred; download bytes yourself
    (httpx) for pHash/SHA-256 before/independent of sink transfer.
 8. COMPLIANCE-mode sink logs a loud warning at construction — expected, leave it.
+
+## Google provider (added after GMI-credits fallout)
+
+- `from genblaze_google.gemini_image import GeminiImageProvider` — name
+  "google-gemini-image", env `GEMINI_API_KEY`, models `^gemini-.*-image`
+  (e.g. `gemini-2.5-flash-image`). Writes output images to LOCAL disk
+  (`output_dir=`); asset.url is a local path — use providers.read_asset_bytes.
+  Only the prompt is honored; seed/size params are not sent.
+- `from genblaze_google.chat import chat` — Gemini chat; env `GEMINI_API_KEY`;
+  NO response_format/timeout params. Extra kwargs merge into generation_config
+  (`response_mime_type="application/json"` for JSON mode). Vision via typed
+  ChatMessage with TextContent/ImageURLContent blocks (data: URI → inline_data).
+- Requires `google-genai` package at runtime.
+- server/providers.py is the dispatch seam: AI_PROVIDER=google|gmicloud.

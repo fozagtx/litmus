@@ -2,11 +2,13 @@
 fastapi==0.141.1
 uvicorn==0.52.1
 boto3==1.43.62
-genblaze[gmicloud,elevenlabs]==0.4.5
+genblaze[gmicloud,elevenlabs,google]==0.4.5
 genblaze-core==0.3.8
 genblaze-s3==0.3.6
 genblaze-gmicloud==0.3.5
 genblaze-elevenlabs==0.3.3
+genblaze-google==0.3.4
+google-genai==1.75.0
 elevenlabs==2.60.0
 ImageHash==4.3.2
 cryptography==50.0.0

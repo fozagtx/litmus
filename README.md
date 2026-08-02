@@ -23,7 +23,8 @@ Lock** and the **Genblaze** pipeline SDK.
    screenshotted copy and still resurrects its full birth certificate via
    Hamming-distance lookup.
 4. **The pipeline is the audit trail.** Genblaze orchestrates
-   generate → judge → retry → narrate → seal across GMI Cloud and ElevenLabs.
+   generate → judge → retry → narrate → seal across the configured AI stack
+   (Google Gemini by default, GMI Cloud selectable) and ElevenLabs.
    Every step — including the attempts the judge rejected — is a signed,
    locked receipt. The vault remembers what the pipeline *didn't* choose,
    and why.
@@ -33,9 +34,13 @@ Lock** and the **Genblaze** pipeline SDK.
 
 ## Stack
 
-- **Backend:** Python 3.11, FastAPI, Genblaze SDK (`genblaze[gmicloud,elevenlabs]`),
-  boto3 against B2's S3-compatible API, `imagehash`, `cryptography` (Ed25519),
-  SQLite for the fingerprint index.
+- **Backend:** Python 3.11, FastAPI, Genblaze SDK
+  (`genblaze[google,gmicloud,elevenlabs]`), boto3 against B2's S3-compatible
+  API, `imagehash`, `cryptography` (Ed25519), SQLite for the fingerprint index.
+- **AI providers:** `AI_PROVIDER=google` (default) runs image generation, the
+  vision judge, and narration text on Gemini — a free AI Studio key works.
+  `AI_PROVIDER=gmicloud` switches all three to GMI Cloud. ElevenLabs narrates
+  either way (free tier is enough).
 - **Frontend:** Vite + React + TypeScript, Tailwind. Signatures and Merkle
   inclusion proofs are re-verified **in the browser** — don't trust the
   server, check the math yourself.
@@ -46,7 +51,8 @@ Lock** and the **Genblaze** pipeline SDK.
 ## Setup from zero
 
 ```bash
-# 0. Accounts: Backblaze B2, GMI Cloud, ElevenLabs. Create a B2 application key.
+# 0. Accounts: Backblaze B2 + ElevenLabs (free tier) + a Gemini API key
+#    (free at https://aistudio.google.com/apikey). Create a B2 application key.
 
 # 1. Python env
 python3.11 -m venv .venv && source .venv/bin/activate
