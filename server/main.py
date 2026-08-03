@@ -106,6 +106,13 @@ def _check_elevenlabs() -> tuple[bool, str]:
         if resp.status_code == 200:
             return True, "ElevenLabs reachable, key accepted"
         if resp.status_code in (401, 403):
+            # Restricted keys can synthesize speech but lack models_read;
+            # that is a permission scope, not an invalid key.
+            if "missing_permissions" in resp.text:
+                return True, (
+                    "ElevenLabs key accepted (restricted key without "
+                    "models_read; TTS permission is what the pipeline uses)"
+                )
             return False, f"ElevenLabs rejected the API key (HTTP {resp.status_code})"
         return False, f"ElevenLabs returned HTTP {resp.status_code}"
     except Exception as exc:
