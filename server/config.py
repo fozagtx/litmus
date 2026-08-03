@@ -143,6 +143,11 @@ def narration_text_model() -> str:
     return _env("NARRATION_TEXT_MODEL", "gemini-3.6-flash")  # type: ignore[return-value]
 
 
+def judge_fallback_model() -> str | None:
+    """Tried once when the primary chat model keeps returning 503/429."""
+    return _env("CHAT_FALLBACK_MODEL", "gemini-3.5-flash")
+
+
 def tts_model() -> str:
     return _env("TTS_MODEL", "eleven_multilingual_v2")  # type: ignore[return-value]
 

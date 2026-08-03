@@ -93,21 +93,59 @@ def provider_chat(
     Raises genblaze ProviderError on failure — callers wrap as needed.
     """
     config.require("ai")
+    import time
+
+    from google import genai
+    from genblaze import ProviderError
     from genblaze_google.chat import chat as google_chat
 
     kwargs: dict[str, Any] = {}
     if force_json:
         # Merged into generation_config by genblaze-google.
         kwargs["response_mime_type"] = "application/json"
-    resp = google_chat(
-        model,
-        messages=messages,
-        prompt=prompt,
-        system=system,
-        temperature=temperature,
-        **kwargs,
-    )
-    return resp.text or ""
+
+    def _call(target_model: str) -> str:
+        # genblaze's chat() builds a client with no HTTP timeout; a stalled
+        # generateContent then hangs the run forever. Bound it ourselves.
+        client = genai.Client(
+            api_key=config.gemini_api_key(),
+            http_options=genai.types.HttpOptions(timeout=120_000),  # ms
+        )
+        try:
+            resp = google_chat(
+                target_model,
+                messages=messages,
+                prompt=prompt,
+                system=system,
+                temperature=temperature,
+                client=client,
+                **kwargs,
+            )
+        finally:
+            close = getattr(client, "close", None)
+            if callable(close):
+                close()
+        return resp.text or ""
+
+    # Free-tier Gemini throws intermittent 503/429 under load. Retry with
+    # backoff, then try the fallback model once before giving up honestly.
+    attempts = [(model, 0.0), (model, 8.0), (model, 20.0)]
+    fallback = config.judge_fallback_model()
+    if fallback and fallback != model:
+        attempts.append((fallback, 30.0))
+    last_exc: Exception | None = None
+    for target_model, delay in attempts:
+        if delay:
+            time.sleep(delay)
+        try:
+            return _call(target_model)
+        except ProviderError as exc:
+            text = str(exc)
+            if "503" in text or "429" in text or "UNAVAILABLE" in text or "RESOURCE_EXHAUSTED" in text:
+                last_exc = exc
+                continue
+            raise
+    raise last_exc  # type: ignore[misc]
 
 
 def read_asset_bytes(url: str, timeout: float = 60.0) -> tuple[bytes, str]:

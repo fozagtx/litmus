@@ -100,8 +100,11 @@ class PollinationsImageProvider(SyncProvider):
             "height": str(step.params.get("height", 1024)),
             "nologo": "true",
         }
-        if step.params.get("seed") is not None:
-            params["seed"] = str(step.params["seed"])
+        # Pipelines pass seed via params, but genblaze normalizes it onto the
+        # canonical Step.seed field — accept either.
+        seed = step.params.get("seed", step.seed)
+        if seed is not None:
+            params["seed"] = str(seed)
 
         url = _BASE_URL + quote(prompt, safe="")
         try:
