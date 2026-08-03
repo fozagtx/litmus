@@ -24,7 +24,7 @@ from PIL import Image
 
 from server import b2, config, index, providers
 from server import runstate as rs
-from server.fingerprint import phash64, sha256_hex
+from server.fingerprint import phash64, phash_variants, sha256_hex
 from server.judge import JudgeError, LitmusJudge
 from server.signing import canonical_bytes, creator_pubkey_field
 
@@ -449,7 +449,8 @@ def _process_iteration(
     image_bytes: bytes = rec["image_bytes"]
     content_type: str = rec["image_content_type"] or "image/png"
     sha = sha256_hex(image_bytes)
-    ph = phash64(image_bytes)
+    variants = phash_variants(image_bytes)
+    ph = variants[0]
     asset_id = rs.new_asset_id()
     original_key = f"assets/{asset_id}/original.png"
     thumb_key = f"assets/{asset_id}/thumb.webp"
@@ -491,6 +492,7 @@ def _process_iteration(
                 "asset_id": asset_id,
                 "sha256": sha,
                 "phash64": ph,
+                "phash_variants": variants,
                 "content_type": content_type,
                 "prompt_used": prompt_used,
                 "seed": seed,
@@ -739,13 +741,15 @@ def _manifest_obj(
 
 
 def _index_row(m: dict[str, Any], manifest_key: str, original_key: str,
-               thumb_key: str | None) -> dict[str, Any]:
+               thumb_key: str | None,
+               phash_variants_list: list[str] | None = None) -> dict[str, Any]:
     return {
         "asset_id": m["asset_id"],
         "kind": m["kind"],
         "status": m["status"],
         "sha256": m["sha256"],
         "phash64": m.get("phash64"),
+        "phash_variants": json.dumps(phash_variants_list) if phash_variants_list else None,
         "prompt": m["prompt"],
         "provider": m["provider"],
         "model": m["model"],
@@ -772,14 +776,15 @@ def _seal_all(run_id: str, entry: rs.RunEntry, final: dict[str, Any]) -> None:
     final_manifest = _manifest_obj(
         final_asset_id, "image", "sealed", final["prompt_used"],
         final["provider"], final["model"],
-        {"seed": final["seed"], "size": "1024x1024"},
+        {"seed": final["seed"], "width": 1024, "height": 1024},
         final["sha256"], final["phash64"], final["content_type"],
         None, run_id, final["created_utc"], retain,
     )
     manifest_key = f"manifests/{final_asset_id}.json"
     _signed, manifest_digest = b2.seal_json("vault", manifest_key, final_manifest)
     index.upsert_asset(_index_row(final_manifest, manifest_key,
-                                  final["original_key"], final["thumb_key"]))
+                                  final["original_key"], final["thumb_key"],
+                                  final.get("phash_variants")))
 
     # Discarded candidates (part of history), linked to the final asset.
     for att in internal["attempts"]:
@@ -788,13 +793,14 @@ def _seal_all(run_id: str, entry: rs.RunEntry, final: dict[str, Any]) -> None:
         m = _manifest_obj(
             att["asset_id"], "image", "discarded", att["prompt_used"],
             att["provider"], att["model"],
-            {"seed": att["seed"], "size": "1024x1024"},
+            {"seed": att["seed"], "width": 1024, "height": 1024},
             att["sha256"], att["phash64"], att["content_type"],
             final_asset_id, run_id, att["created_utc"], retain,
         )
         k = f"manifests/{att['asset_id']}.json"
         b2.seal_json("vault", k, m)
-        index.upsert_asset(_index_row(m, k, att["original_key"], att["thumb_key"]))
+        index.upsert_asset(_index_row(m, k, att["original_key"], att["thumb_key"],
+                                      att.get("phash_variants")))
 
     # Audio manifest (if narration succeeded).
     nar = internal.get("narration_record")

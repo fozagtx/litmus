@@ -212,11 +212,34 @@ def test_index() -> None:
     assert got and got["asset_id"] == "ast_smoke0001", "exact sha256 lookup failed"
 
     near = ph[:-1] + ("0" if ph[-1] != "0" else "1")  # flip low bits
-    best = index.phash_best_match(near)
+    best = index.phash_best_match([near])
     assert best is not None, "near phash found no match"
     row, dist = best
     assert row["asset_id"] == "ast_smoke0001", f"wrong best match {row['asset_id']}"
     assert dist == hamming(ph, near), "distance mismatch"
+
+    # Variant matching: a heavy center crop must match through the stored
+    # pHash variants even when the full-frame distance exceeds the threshold.
+    import io
+    import json as _json
+
+    from PIL import Image
+
+    from server import config
+    from server.fingerprint import phash_variants
+
+    with Image.open(io.BytesIO(grad)) as img:
+        w, h = img.size
+        heavy = img.crop((int(w * 0.12), int(h * 0.12), int(w * 0.88), int(h * 0.88)))
+        buf = io.BytesIO()
+        heavy.convert("RGB").resize((400, 400)).save(buf, format="JPEG", quality=62)
+    upload_hashes = phash_variants(buf.getvalue())
+    row_v = _asset_row("ast_smoke0004", sha256_hex(b"variant-src"), ph)
+    row_v["phash_variants"] = _json.dumps(phash_variants(grad))
+    index.upsert_asset(row_v)
+    best_v = index.phash_best_match(upload_hashes)
+    assert best_v is not None, "variant matching found nothing for a heavy crop"
+    assert best_v[1] <= config.phash_max_distance(), f"variant distance {best_v[1]} over threshold"
 
     # Discarded assets must not appear in perceptual matches or default lists.
     listed = index.list_assets()

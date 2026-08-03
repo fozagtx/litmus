@@ -14,7 +14,7 @@ import threading
 from typing import Any, Iterator
 
 from server import b2, config
-from server.fingerprint import hamming
+from server.fingerprint import hamming, min_hamming
 from server.schemas import SchemaValidationError, validate_locked
 from server.signing import verify_obj
 
@@ -25,7 +25,7 @@ _init_lock = threading.Lock()
 _initialized = False
 
 _ASSET_COLUMNS = (
-    "asset_id", "kind", "status", "sha256", "phash64", "prompt", "provider",
+    "asset_id", "kind", "status", "sha256", "phash64", "phash_variants", "prompt", "provider",
     "model", "params_json", "created_utc", "run_id", "parent_asset",
     "manifest_key", "original_key", "thumb_key", "media_content_type",
     "retain_until", "anchor_batch",
@@ -58,6 +58,7 @@ def init_db() -> None:
                 status TEXT NOT NULL,
                 sha256 TEXT NOT NULL,
                 phash64 TEXT,
+                phash_variants TEXT,
                 prompt TEXT NOT NULL,
                 provider TEXT NOT NULL,
                 model TEXT NOT NULL,
@@ -83,6 +84,10 @@ def init_db() -> None:
             );
             """
         )
+        # Migration for databases created before pHash variants existed.
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(assets)")}
+        if "phash_variants" not in cols:
+            conn.execute("ALTER TABLE assets ADD COLUMN phash_variants TEXT")
         conn.commit()
         _initialized = True
 
@@ -117,15 +122,23 @@ def get_by_sha256(sha256: str) -> dict[str, Any] | None:
     return _row_to_dict(row)
 
 
-def phash_best_match(phash: str) -> tuple[dict[str, Any], int] | None:
-    """Linear Hamming scan over sealed image assets. Best match <= threshold."""
+def phash_best_match(upload_hashes: list[str]) -> tuple[dict[str, Any], int] | None:
+    """Linear scan over sealed image assets, min pairwise Hamming distance
+    across pHash variants (full image + center crops on both sides).
+    Best match <= threshold."""
     threshold = config.phash_max_distance()
     best: tuple[dict[str, Any], int] | None = None
     cur = _connect().execute(
         "SELECT * FROM assets WHERE kind = 'image' AND status = 'sealed' AND phash64 IS NOT NULL"
     )
     for row in cur:
-        d = hamming(phash, row["phash64"])
+        stored = [row["phash64"]]
+        if row["phash_variants"]:
+            try:
+                stored = json.loads(row["phash_variants"]) or stored
+            except ValueError:
+                pass
+        d = min_hamming(upload_hashes, stored)
         if d <= threshold and (best is None or d < best[1]):
             best = (dict(row), d)
             if d == 0:
@@ -273,6 +286,18 @@ def reindex_from_vault() -> int:
             logger.warning("reindex: invalid manifest %s: %s; skipping", key, exc)
             continue
         original_key, thumb_key = _keys_for_kind(validated["asset_id"], validated["kind"])
+        # Variants are derived from bytes, not stored in the manifest —
+        # recompute from the original in lm-assets; fall back to the single hash.
+        variants_json = None
+        if validated["kind"] == "image":
+            try:
+                from server.fingerprint import phash_variants
+
+                variants_json = json.dumps(
+                    phash_variants(b2.get_bytes("assets", original_key))
+                )
+            except Exception as exc:  # noqa: BLE001 — index quality, not correctness
+                logger.warning("reindex: could not derive variants for %s: %s", key, exc)
         upsert_asset(
             {
                 "asset_id": validated["asset_id"],
@@ -280,6 +305,7 @@ def reindex_from_vault() -> int:
                 "status": validated["status"],
                 "sha256": validated["sha256"],
                 "phash64": validated.get("phash64"),
+                "phash_variants": variants_json,
                 "prompt": validated["prompt"],
                 "provider": validated["provider"],
                 "model": validated["model"],

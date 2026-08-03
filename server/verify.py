@@ -14,7 +14,7 @@ from collections import deque
 from typing import Any
 
 from server import b2, config, index, merkle
-from server.fingerprint import phash64, sha256_hex
+from server.fingerprint import phash64, phash_variants, sha256_hex
 
 logger = logging.getLogger("litmus.verify")
 
@@ -140,11 +140,11 @@ def verify_bytes(data: bytes, content_type: str | None) -> dict[str, Any]:
 
     if kind == "image":
         try:
-            ph = phash64(data)
+            upload_hashes = phash_variants(data)
         except Exception as exc:
             raise VerifyRejected(400, f"Could not decode the image: {exc}") from exc
-        uploaded["phash64"] = ph
-        best = index.phash_best_match(ph)
+        uploaded["phash64"] = upload_hashes[0]
+        best = index.phash_best_match(upload_hashes)
         if best is not None:
             row, distance = best
             return {
