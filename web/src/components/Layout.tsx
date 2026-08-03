@@ -47,7 +47,8 @@ export function Layout() {
     <div className="flex min-h-screen flex-col">
       <header className="border-b border-line print:hidden">
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
-          <Link to="/" className="font-display text-22 text-ink">
+          <Link to="/" className="flex items-center gap-2.5 font-display text-22 text-ink">
+            <img src="/logo-mark.png" alt="" className="h-7 w-auto" />
             Litmus
           </Link>
           <nav aria-label="Primary" className="flex items-center gap-5 md:hidden">
