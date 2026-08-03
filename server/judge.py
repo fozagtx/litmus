@@ -49,7 +49,7 @@ class JudgeError(RuntimeError):
 def download_image(url: str, timeout: float = 60.0) -> tuple[bytes, str]:
     """Fetch image bytes from wherever the provider put them.
 
-    Remote URL (GMI), local file / file:// URI (Gemini writes to disk), or
+    Remote URL, local file / file:// URI (image providers write to disk), or
     data: URL. Returns (bytes, content_type).
     """
     from server import providers

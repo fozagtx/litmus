@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validate the configured models against the LIVE provider catalogs.
 
-Requires GEMINI_API_KEY plus ELEVENLABS_API_KEY. Checks:
+Requires DASHSCOPE_API_KEY plus ELEVENLABS_API_KEY. Checks:
   - IMAGE_MODEL + IMAGE_FALLBACK_MODELS via the provider's validate_model
   - JUDGE_MODEL and NARRATION_TEXT_MODEL via a 1-token chat ping
   - TTS_MODEL via ElevenLabs catalog discovery / validate_model
@@ -82,7 +82,7 @@ def check_tts_model() -> None:
 
 def main() -> int:
     hard_fail = False
-    provider_label = "GEMINI"
+    provider_label = "DASHSCOPE"
     try:
         config.require("ai")
         check_image_models()

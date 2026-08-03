@@ -1,19 +1,24 @@
 """Provider dispatch — one seam between the pipeline and the AI services.
 
-Chat (the vision judge and narration text) runs on Gemini via genblaze-google,
-using GEMINI_API_KEY. Images run on IMAGE_PROVIDER:
+Chat (the vision judge and narration text) runs on Alibaba DashScope via the
+OpenAI-wire genblaze helper, using DASHSCOPE_API_KEY. Images run on
+IMAGE_PROVIDER:
 
 - "pollinations" (default) → server/pollinations.py, keyless and free
-- "google" → Gemini image models, requires billing enabled on the key
+- "alibaba" → server/alibaba.py, DashScope wan/qwen image models
 
-ElevenLabs TTS is independent of both. Everything here returns real provider
-objects or raises ConfigError — there is no mock path.
+When Pollinations fails a whole run and a DashScope key exists, new runs
+fail over to Alibaba for a ten-minute window. ElevenLabs TTS is independent.
+Everything here returns real provider objects or raises ConfigError — there
+is no mock path.
 """
 
 from __future__ import annotations
 
 import base64
 import mimetypes
+import threading
+import time
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
@@ -27,44 +32,89 @@ from server import config
 _IMAGE_OUTPUT_DIR = config.PROJECT_ROOT / "data" / "tmp" / "images"
 
 
-def image_provider() -> Any:
-    """A fresh image-generation provider instance for IMAGE_PROVIDER."""
+# Sticky cross-provider failover: when the configured image provider fails an
+# entire run, runs started in the next window use the fallback provider (an
+# Alibaba DashScope key, when configured). Receipts always record the TRUE
+# provider from the executed step, so a mid-window label lag on a concurrent
+# run cannot corrupt provenance.
+_FAILOVER_WINDOW_SEC = 600.0
+_failover_until: float = 0.0
+_failover_lock = threading.Lock()
+
+
+def mark_image_provider_failure() -> None:
+    """Called when a run dies on image-provider errors; arms the failover."""
+    global _failover_until
+    if config.image_provider_kind() == "pollinations" and config.dashscope_api_key():
+        with _failover_lock:
+            _failover_until = time.monotonic() + _FAILOVER_WINDOW_SEC
+
+
+def effective_image_kind() -> str:
     kind = config.image_provider_kind()
+    if kind == "pollinations" and config.dashscope_api_key():
+        with _failover_lock:
+            if time.monotonic() < _failover_until:
+                return "alibaba"
+    return kind
+
+
+def image_provider() -> Any:
+    """A fresh image-generation provider instance for the effective kind."""
+    kind = effective_image_kind()
     _IMAGE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     if kind == "pollinations":
         from server.pollinations import PollinationsImageProvider
 
         return PollinationsImageProvider(output_dir=_IMAGE_OUTPUT_DIR)
     config.require("ai")
-    from genblaze_google.gemini_image import GeminiImageProvider
+    from server.alibaba import AlibabaImageProvider
 
-    return GeminiImageProvider(output_dir=_IMAGE_OUTPUT_DIR)
+    return AlibabaImageProvider(
+        config.dashscope_api_key() or "", output_dir=_IMAGE_OUTPUT_DIR
+    )
 
 
-_IMAGE_LABELS = {"pollinations": "pollinations", "google": "google-gemini-image"}
-_IMAGE_DISPLAY = {"pollinations": "Pollinations", "google": "Google Gemini"}
+_IMAGE_LABELS = {"pollinations": "pollinations", "alibaba": "alibaba-image"}
+_IMAGE_DISPLAY = {"pollinations": "Pollinations", "alibaba": "Alibaba Qwen"}
 
 
 def image_provider_label() -> str:
     """Provider name recorded in receipts/manifests for image generation."""
-    return _IMAGE_LABELS[config.image_provider_kind()]
+    return _IMAGE_LABELS[effective_image_kind()]
 
 
 def image_provider_display() -> str:
     """Human name for step labels and error copy."""
-    return _IMAGE_DISPLAY[config.image_provider_kind()]
+    return _IMAGE_DISPLAY[effective_image_kind()]
+
+
+def image_model() -> str:
+    """The model slug for the effective image provider (failover-aware)."""
+    kind = effective_image_kind()
+    if kind != config.image_provider_kind():
+        return config._IMAGE_DEFAULTS[kind]["IMAGE_MODEL"]
+    return config.image_model()
+
+
+def image_fallback_models() -> list[str]:
+    kind = effective_image_kind()
+    if kind != config.image_provider_kind():
+        raw = config._IMAGE_DEFAULTS[kind]["IMAGE_FALLBACK_MODELS"]
+        return [m.strip() for m in raw.split(",") if m.strip()]
+    return config.image_fallback_models()
 
 
 def image_seed_honored() -> bool:
     """Whether the active image provider actually uses a seed param.
 
     Receipts must not record a seed the model never saw."""
-    return config.image_provider_kind() == "pollinations"
+    return effective_image_kind() in ("pollinations", "alibaba")
 
 
 def chat_provider_label() -> str:
     """Provider name recorded in receipts for judge/narration chat calls."""
-    return "google"
+    return "alibaba"
 
 
 def vision_message(text: str, image_data_url: str) -> ChatMessage:
@@ -87,50 +137,37 @@ def provider_chat(
     temperature: float | None = None,
     force_json: bool = False,
 ) -> str:
-    """Call a Gemini chat model; return the response text.
+    """Call a DashScope chat model (OpenAI wire); return the response text.
 
     force_json asks for a JSON-only response via response_mime_type.
     Raises genblaze ProviderError on failure — callers wrap as needed.
     """
     config.require("ai")
-    import time
-
-    from google import genai
     from genblaze import ProviderError
-    from genblaze_google.chat import chat as google_chat
+    from genblaze_openai.chat import chat as openai_wire_chat
 
     kwargs: dict[str, Any] = {}
     if force_json:
-        # Merged into generation_config by genblaze-google.
-        kwargs["response_mime_type"] = "application/json"
+        kwargs["response_format"] = {"type": "json_object"}
 
     def _call(target_model: str) -> str:
-        # genblaze's chat() builds a client with no HTTP timeout; a stalled
-        # generateContent then hangs the run forever. Bound it ourselves.
-        client = genai.Client(
-            api_key=config.gemini_api_key(),
-            http_options=genai.types.HttpOptions(timeout=120_000),  # ms
+        resp = openai_wire_chat(
+            target_model,
+            messages=messages,
+            prompt=prompt,
+            system=system,
+            temperature=temperature,
+            api_key=config.dashscope_api_key(),
+            base_url=config.DASHSCOPE_COMPAT_URL,
+            timeout=120.0,
+            **kwargs,
         )
-        try:
-            resp = google_chat(
-                target_model,
-                messages=messages,
-                prompt=prompt,
-                system=system,
-                temperature=temperature,
-                client=client,
-                **kwargs,
-            )
-        finally:
-            close = getattr(client, "close", None)
-            if callable(close):
-                close()
         return resp.text or ""
 
-    # Free-tier Gemini throws intermittent 503/429 under load. Retry with
-    # backoff, then try the fallback model once before giving up honestly.
+    # Retry transient throttling/capacity errors with backoff, then try the
+    # fallback model once before giving up honestly.
     attempts = [(model, 0.0), (model, 8.0), (model, 20.0)]
-    fallback = config.judge_fallback_model()
+    fallback = config.chat_fallback_model()
     if fallback and fallback != model:
         attempts.append((fallback, 30.0))
     last_exc: Exception | None = None
@@ -141,7 +178,7 @@ def provider_chat(
             return _call(target_model)
         except ProviderError as exc:
             text = str(exc)
-            if "503" in text or "429" in text or "UNAVAILABLE" in text or "RESOURCE_EXHAUSTED" in text:
+            if any(k in text for k in ("503", "429", "Throttling", "UNAVAILABLE", "RESOURCE_EXHAUSTED")):
                 last_exc = exc
                 continue
             raise

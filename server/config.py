@@ -68,11 +68,14 @@ def state_bucket() -> str | None:
 
 
 # --- Providers --------------------------------------------------------------
-# Chat (judge + narration text) runs on Gemini. Images run on IMAGE_PROVIDER:
-# keyless Pollinations by default, or Gemini image models with billing enabled.
+# Chat (judge + narration text) runs on Alibaba DashScope. Images run on
+# IMAGE_PROVIDER: keyless Pollinations by default, DashScope as failover.
 
-def gemini_api_key() -> str | None:
-    return _env("GEMINI_API_KEY")
+DASHSCOPE_COMPAT_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+
+
+def dashscope_api_key() -> str | None:
+    return _env("DASHSCOPE_API_KEY")
 
 
 def elevenlabs_api_key() -> str | None:
@@ -93,18 +96,15 @@ def signing_key_path() -> Path:
     return p
 
 
-# Image defaults follow IMAGE_PROVIDER. Keyless Pollinations is the default
-# because Gemini's free tier has no image-generation quota; "google" works
-# once billing is enabled on the key's project.
+# Image defaults follow IMAGE_PROVIDER. Keyless Pollinations is the default;
+# Alibaba DashScope is the paid failover.
 _IMAGE_DEFAULTS: dict[str, dict[str, str]] = {
     "pollinations": {"IMAGE_MODEL": "flux", "IMAGE_FALLBACK_MODELS": "turbo"},
-    "google": {
-        "IMAGE_MODEL": "gemini-3.1-flash-image",
-        "IMAGE_FALLBACK_MODELS": "gemini-2.5-flash-image",
-    },
+    # Cheapest non-pro DashScope line; treat trial credit as scarce.
+    "alibaba": {"IMAGE_MODEL": "wan2.7-image", "IMAGE_FALLBACK_MODELS": "qwen-image-2.0"},
 }
 
-_IMAGE_PROVIDERS = ("pollinations", "google")
+_IMAGE_PROVIDERS = ("pollinations", "alibaba")
 
 
 def image_provider_kind() -> str:
@@ -133,19 +133,20 @@ def image_fallback_models() -> list[str]:
     return [m.strip() for m in raw.split(",") if m.strip()]
 
 
-# 2.5-generation chat models 404 for accounts created after the Gemini 3.x
-# rollout; scripts/check_providers.py validates against the live catalog.
 def judge_model() -> str:
-    return _env("JUDGE_MODEL", "gemini-3.6-flash")  # type: ignore[return-value]
+    # qwen-vl-plus: the cheaper DashScope vision tier; validated live.
+    return _env("JUDGE_MODEL", "qwen-vl-plus")  # type: ignore[return-value]
 
 
 def narration_text_model() -> str:
-    return _env("NARRATION_TEXT_MODEL", "gemini-3.6-flash")  # type: ignore[return-value]
+    return _env("NARRATION_TEXT_MODEL", "qwen3.6-flash")  # type: ignore[return-value]
 
 
-def judge_fallback_model() -> str | None:
-    """Tried once when the primary chat model keeps returning 503/429."""
-    return _env("CHAT_FALLBACK_MODEL", "gemini-3.5-flash")
+def chat_fallback_model() -> str | None:
+    """Tried once when the primary chat model keeps throttling or erroring.
+
+    qwen-vl-max handles both vision (judge) and plain text (narration)."""
+    return _env("CHAT_FALLBACK_MODEL", "qwen-vl-max")
 
 
 def tts_model() -> str:
@@ -194,7 +195,7 @@ REQUIRED_BY_SUBSYSTEM: dict[str, tuple[str, ...]] = {
 def missing_for(subsystem: str) -> list[str]:
     """Return the list of missing env vars for a subsystem (empty when complete)."""
     if subsystem == "ai":
-        return [] if _env("GEMINI_API_KEY") is not None else ["GEMINI_API_KEY"]
+        return [] if _env("DASHSCOPE_API_KEY") is not None else ["DASHSCOPE_API_KEY"]
     names = REQUIRED_BY_SUBSYSTEM.get(subsystem)
     if names is None:
         raise ValueError(f"Unknown subsystem {subsystem!r}")

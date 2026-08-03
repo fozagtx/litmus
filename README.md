@@ -21,7 +21,7 @@ The server signs every manifest and receipt with Ed25519. The browser re-verifie
 ```mermaid
 flowchart TD
     A[Prompt in the studio] --> B[Generate image<br>Pollinations, free and keyless]
-    B --> C{Vision judge<br>score at least 70?}
+    B --> C{Vision judge, Qwen-VL<br>score at least 70?}
     C -- "no, retry up to 2x with judge notes" --> B
     C -- yes --> D[Narrate the scene<br>ElevenLabs TTS, optional]
     D --> E[Seal: Ed25519-signed manifest,<br>SHA-256 + perceptual hash]
@@ -75,7 +75,7 @@ Requires Python 3.11+ and Node 20+ for the frontend.
 Full setup from a fresh B2 account, using the master key once to bootstrap:
 
 ```bash
-# .env: set B2_MASTER_KEY_ID + B2_MASTER_APP_KEY, GEMINI_API_KEY, ELEVENLABS_API_KEY
+# .env: set B2_MASTER_KEY_ID + B2_MASTER_APP_KEY, DASHSCOPE_API_KEY, ELEVENLABS_API_KEY
 python scripts/bootstrap_b2.py     # creates the 3 buckets (vault locked), mints a scoped runtime key
 python scripts/check_providers.py  # validates your model slugs against live catalogs
 uvicorn server.main:app --port 8000
@@ -101,8 +101,8 @@ docker run --env-file .env -p 8000:8000 litmus
 
 All configuration is environment variables, loaded from `.env`. Missing values surface as honest 503s naming the variable, never as fake output.
 
-- `GEMINI_API_KEY` powers the vision judge and narration text (a free AI Studio key is enough); `ELEVENLABS_API_KEY` powers the voice.
-- `IMAGE_PROVIDER` selects image generation: `pollinations` (default, keyless and free) or `google` (Gemini image models, needs billing enabled on your Google project).
+- `DASHSCOPE_API_KEY` (Alibaba Model Studio) powers the vision judge (`qwen-vl-plus`) and narration text (`qwen3.6-flash`); `ELEVENLABS_API_KEY` powers the voice.
+- `IMAGE_PROVIDER` selects image generation: `pollinations` (default, keyless and free) or `alibaba` (DashScope `wan2.7-image`). When a DashScope key is present, Pollinations outages automatically fail over to Alibaba for new runs.
 - `IMAGE_MODEL`, `JUDGE_MODEL`, `NARRATION_TEXT_MODEL`, `TTS_MODEL` override the per-provider defaults; leave blank to use them.
 - `B2_REGION`, `B2_KEY_ID`, `B2_APP_KEY`, `B2_ASSETS_BUCKET`, `B2_VAULT_BUCKET`, `B2_STATE_BUCKET` point at your buckets.
 - `VAULT_RETENTION_DAYS` sets the compliance retention (7 for the demo; raise for production; irreversible per object once written).

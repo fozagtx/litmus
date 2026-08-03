@@ -73,12 +73,12 @@ app.include_router(media.router)
 # --- health & keys ----------------------------------------------------------
 
 def _check_ai_provider() -> tuple[bool, str]:
-    key = config.gemini_api_key()
+    key = config.dashscope_api_key()
     if not key:
-        return False, "missing env var: GEMINI_API_KEY"
-    url = "https://generativelanguage.googleapis.com/v1beta/models"
-    headers = {"x-goog-api-key": key}
-    display = "Google Gemini"
+        return False, "missing env var: DASHSCOPE_API_KEY"
+    url = f"{config.DASHSCOPE_COMPAT_URL}/models"
+    headers = {"Authorization": f"Bearer {key}"}
+    display = "Alibaba DashScope"
     try:
         resp = httpx.get(url, headers=headers, timeout=8.0)
         if resp.status_code == 200:

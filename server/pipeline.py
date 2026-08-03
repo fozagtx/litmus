@@ -211,8 +211,11 @@ def _fail_run(run_id: str, exc: Exception) -> None:
     copy = GENERIC_COPY
     text = str(exc)
     lowered = text.lower()
-    if any(k in lowered for k in ("pollinations", "gemini", "google")):
+    if any(k in lowered for k in ("pollinations", "dashscope", "alibaba")):
         copy = provider_down_copy()
+        # Arm the cross-provider failover so the user's retry actually lands
+        # on a different image backend.
+        providers.mark_image_provider_failure()
     elif "elevenlabs" in text.lower():
         copy = ELEVENLABS_DOWN_COPY
 
@@ -356,8 +359,8 @@ def _generation_loop(run_id: str, entry: rs.RunEntry, prompt: str) -> str:
         p = Pipeline("litmus-image", preflight=False)
         p.step(
             provider,
-            model=config.image_model(),
-            fallback_models=config.image_fallback_models(),
+            model=providers.image_model(),
+            fallback_models=providers.image_fallback_models(),
             prompt=step_prompt,
             modality=Modality.IMAGE,
             step_type=StepType.GENERATE,
@@ -375,7 +378,7 @@ def _generation_loop(run_id: str, entry: rs.RunEntry, prompt: str) -> str:
             ev_type = getattr(ev, "type", "")
             if ev_type == "agent.iteration.started":
                 attempt = attempt_offset + ev.iteration
-                model = config.image_model()
+                model = providers.image_model()
 
                 def add_gen(s, i, attempt=attempt, model=model):
                     _add_step(
@@ -421,7 +424,7 @@ def _process_iteration(
         error = rec["error"] or "unknown provider failure"
         step_obj = result.run.steps[0] if result.run.steps else None
         provider_name = (step_obj.provider if step_obj else None) or providers.image_provider_label()
-        model_name = step_obj.model if step_obj else config.image_model()
+        model_name = step_obj.model if step_obj else providers.image_model()
         key, digest = _seal_receipt(
             run_id, internal, "failure", provider_name, model_name,
             _detail_sha({"prompt": prompt_used, "params": {"seed": seed, "width": 1024, "height": 1024}}),
@@ -551,10 +554,10 @@ def _handle_judge_crash(
         image_bytes = rec["image_bytes"]
         sha = sha256_hex(image_bytes)
         _seal_receipt(
-            run_id, internal, "generate", providers.image_provider_label(), config.image_model(),
+            run_id, internal, "generate", providers.image_provider_label(), providers.image_model(),
             _detail_sha({"prompt": prompt_used, "params": {"seed": seed, "width": 1024, "height": 1024}}),
             sha,
-            {"model": config.image_model(), "provider": providers.image_provider_label(),
+            {"model": providers.image_model(), "provider": providers.image_provider_label(),
              "seed": seed, "attempt": attempt, "note": "judge failed after generation"},
         )
         out_sha = sha
