@@ -1,3 +1,5 @@
+<img src="web/public/logo-paper.png" alt="Litmus" width="340" />
+
 # Litmus
 
 A generation studio where every AI asset is born with a signed birth certificate, sealed in write-once storage, and verifiable even from a cropped screenshot.
