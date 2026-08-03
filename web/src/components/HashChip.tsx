@@ -3,7 +3,7 @@ import { truncMiddle } from '../lib/format';
 import { useToast } from './Toast';
 
 interface HashChipProps {
-  value: string;
+  value: string | null | undefined;
   /** Characters kept before the ellipsis (default 4). */
   head?: number;
   /** Characters kept after the ellipsis (default 4; 0 = plain prefix). */
@@ -11,9 +11,13 @@ interface HashChipProps {
   className?: string;
 }
 
-/** Mono pill for hashes, keys, and IDs. Middle-truncated, copies on click. */
+/** Mono pill for hashes, keys, and IDs. Middle-truncated, copies on click.
+ * Renders nothing for absent values (audio assets have no pHash, the first
+ * receipt in a chain has no predecessor hash). */
 export function HashChip({ value, head = 4, tail = 4, className = '' }: HashChipProps) {
   const toast = useToast();
+
+  if (!value) return null;
 
   const copy = async (event: MouseEvent<HTMLButtonElement>) => {
     // Chips can sit inside links/cards; copying must not navigate.
