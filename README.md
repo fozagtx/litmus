@@ -20,7 +20,7 @@ The server signs every manifest and receipt with Ed25519. The browser re-verifie
 
 ```mermaid
 flowchart TD
-    A[Prompt in the studio] --> B[Generate image<br>Gemini or GMI Cloud]
+    A[Prompt in the studio] --> B[Generate image<br>Pollinations, free and keyless]
     B --> C{Vision judge<br>score at least 70?}
     C -- "no, retry up to 2x with judge notes" --> B
     C -- yes --> D[Narrate the scene<br>ElevenLabs TTS, optional]
@@ -101,8 +101,8 @@ docker run --env-file .env -p 8000:8000 litmus
 
 All configuration is environment variables, loaded from `.env`. Missing values surface as honest 503s naming the variable, never as fake output.
 
-- `AI_PROVIDER` selects the inference stack for image generation, the judge, and narration text: `google` (Gemini, a free AI Studio key covers all three) or `gmicloud` (GMI Cloud).
-- `GEMINI_API_KEY` or `GMI_API_KEY` to match, plus `ELEVENLABS_API_KEY` for narration.
+- `GEMINI_API_KEY` powers the vision judge and narration text (a free AI Studio key is enough); `ELEVENLABS_API_KEY` powers the voice.
+- `IMAGE_PROVIDER` selects image generation: `pollinations` (default, keyless and free) or `google` (Gemini image models, needs billing enabled on your Google project).
 - `IMAGE_MODEL`, `JUDGE_MODEL`, `NARRATION_TEXT_MODEL`, `TTS_MODEL` override the per-provider defaults; leave blank to use them.
 - `B2_REGION`, `B2_KEY_ID`, `B2_APP_KEY`, `B2_ASSETS_BUCKET`, `B2_VAULT_BUCKET`, `B2_STATE_BUCKET` point at your buckets.
 - `VAULT_RETENTION_DAYS` sets the compliance retention (7 for the demo; raise for production; irreversible per object once written).

@@ -145,7 +145,6 @@ class LitmusJudge(Evaluator):
                 system=JUDGE_SYSTEM_PROMPT,
                 temperature=0,
                 force_json=True,
-                response_format=JudgeVerdict,
             )
         except Exception as exc:
             raise JudgeError(f"Judge model call failed: {exc}") from exc

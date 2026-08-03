@@ -68,27 +68,8 @@ def state_bucket() -> str | None:
 
 
 # --- Providers --------------------------------------------------------------
-
-_AI_PROVIDERS = ("google", "gmicloud")
-
-
-def ai_provider() -> str:
-    """Which inference stack powers image gen + judge + narration text.
-
-    "google" (Gemini, default — free-tier API key from AI Studio) or
-    "gmicloud" (the hackathon partner cloud, needs GMI credits).
-    """
-    value = (_env("AI_PROVIDER", "google") or "google").strip().lower()
-    if value not in _AI_PROVIDERS:
-        raise ConfigError(
-            f"AI_PROVIDER must be one of {', '.join(_AI_PROVIDERS)}; got {value!r}"
-        )
-    return value
-
-
-def gmi_api_key() -> str | None:
-    return _env("GMI_API_KEY")
-
+# Chat (judge + narration text) runs on Gemini. Images run on IMAGE_PROVIDER:
+# keyless Pollinations by default, or Gemini image models with billing enabled.
 
 def gemini_api_key() -> str | None:
     return _env("GEMINI_API_KEY")
@@ -112,46 +93,54 @@ def signing_key_path() -> Path:
     return p
 
 
-_MODEL_DEFAULTS: dict[str, dict[str, str]] = {
+# Image defaults follow IMAGE_PROVIDER. Keyless Pollinations is the default
+# because Gemini's free tier has no image-generation quota; "google" works
+# once billing is enabled on the key's project.
+_IMAGE_DEFAULTS: dict[str, dict[str, str]] = {
+    "pollinations": {"IMAGE_MODEL": "flux", "IMAGE_FALLBACK_MODELS": "turbo"},
     "google": {
-        # 2.5-generation models 404 for accounts created after the 3.x
-        # rollout; these are the current stable slugs (scripts/check_providers.py
-        # validates against the live catalog).
         "IMAGE_MODEL": "gemini-3.1-flash-image",
         "IMAGE_FALLBACK_MODELS": "gemini-2.5-flash-image",
-        "JUDGE_MODEL": "gemini-3.6-flash",
-        "NARRATION_TEXT_MODEL": "gemini-3.6-flash",
-    },
-    "gmicloud": {
-        "IMAGE_MODEL": "seedream-4-0",
-        "IMAGE_FALLBACK_MODELS": "flux-kontext-pro",
-        "JUDGE_MODEL": "Qwen/Qwen2.5-VL-72B-Instruct",
-        "NARRATION_TEXT_MODEL": "deepseek-ai/DeepSeek-V3",
     },
 }
 
+_IMAGE_PROVIDERS = ("pollinations", "google")
 
-def _model_default(name: str) -> str:
-    return _MODEL_DEFAULTS[ai_provider()][name]
+
+def image_provider_kind() -> str:
+    value = (_env("IMAGE_PROVIDER", "pollinations") or "pollinations").strip().lower()
+    if value not in _IMAGE_PROVIDERS:
+        raise ConfigError(
+            f"IMAGE_PROVIDER must be one of {', '.join(_IMAGE_PROVIDERS)}; got {value!r}"
+        )
+    return value
 
 
 def image_model() -> str:
-    return _env("IMAGE_MODEL", _model_default("IMAGE_MODEL"))  # type: ignore[return-value]
+    return _env(
+        "IMAGE_MODEL", _IMAGE_DEFAULTS[image_provider_kind()]["IMAGE_MODEL"]
+    )  # type: ignore[return-value]
 
 
 def image_fallback_models() -> list[str]:
-    raw = _env("IMAGE_FALLBACK_MODELS", _model_default("IMAGE_FALLBACK_MODELS")) or ""
+    raw = (
+        _env(
+            "IMAGE_FALLBACK_MODELS",
+            _IMAGE_DEFAULTS[image_provider_kind()]["IMAGE_FALLBACK_MODELS"],
+        )
+        or ""
+    )
     return [m.strip() for m in raw.split(",") if m.strip()]
 
 
+# 2.5-generation chat models 404 for accounts created after the Gemini 3.x
+# rollout; scripts/check_providers.py validates against the live catalog.
 def judge_model() -> str:
-    return _env("JUDGE_MODEL", _model_default("JUDGE_MODEL"))  # type: ignore[return-value]
+    return _env("JUDGE_MODEL", "gemini-3.6-flash")  # type: ignore[return-value]
 
 
 def narration_text_model() -> str:
-    return _env(
-        "NARRATION_TEXT_MODEL", _model_default("NARRATION_TEXT_MODEL")
-    )  # type: ignore[return-value]
+    return _env("NARRATION_TEXT_MODEL", "gemini-3.6-flash")  # type: ignore[return-value]
 
 
 def tts_model() -> str:
@@ -197,19 +186,10 @@ REQUIRED_BY_SUBSYSTEM: dict[str, tuple[str, ...]] = {
     "elevenlabs": ("ELEVENLABS_API_KEY",),
 }
 
-_AI_KEY_BY_PROVIDER = {"google": "GEMINI_API_KEY", "gmicloud": "GMI_API_KEY"}
-
-
-def ai_key_env() -> str:
-    """The API-key env var name for the active AI_PROVIDER."""
-    return _AI_KEY_BY_PROVIDER[ai_provider()]
-
-
 def missing_for(subsystem: str) -> list[str]:
     """Return the list of missing env vars for a subsystem (empty when complete)."""
     if subsystem == "ai":
-        # Resolved dynamically: which key is required depends on AI_PROVIDER.
-        return [] if _env(ai_key_env()) is not None else [ai_key_env()]
+        return [] if _env("GEMINI_API_KEY") is not None else ["GEMINI_API_KEY"]
     names = REQUIRED_BY_SUBSYSTEM.get(subsystem)
     if names is None:
         raise ValueError(f"Unknown subsystem {subsystem!r}")

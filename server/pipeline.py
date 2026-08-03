@@ -43,10 +43,10 @@ for a gallery placard, neutral documentary tone: "{original_prompt}\""""
 
 # PRD §8.6 error surfaces.
 def provider_down_copy() -> str:
-    name = "Google Gemini" if config.ai_provider() == "google" else "GMI Cloud"
     return (
-        f"{name} isn't responding. We retried once and logged the failure to "
-        "your receipt chain. Try again, or switch providers in options."
+        f"{providers.image_provider_display()} isn't responding. We retried once "
+        "and logged the failure to your receipt chain. Try again, or switch "
+        "providers in options."
     )
 ELEVENLABS_DOWN_COPY = (
     "ElevenLabs isn't responding. We logged the failure to your receipt "
@@ -139,14 +139,11 @@ def _attempt_prompt(original_prompt: str, attempt: int, prior_reasons: list[str]
 
 def _step_label(name: str, attempt: int, model: str) -> str:
     if name == "generate":
-        provider_display = (
-            "Google Gemini" if config.ai_provider() == "google" else "GMI Cloud"
-        )
         if attempt == 0:
-            return f"Generate image — {provider_display} / {model}"
+            return f"Generate image — {providers.image_provider_display()} / {model}"
         retries = f"Retry {attempt} of {config.max_attempts() - 1}"
         # The seed only changes on providers that honor one; don't claim it did.
-        if config.ai_provider() == "gmicloud":
+        if providers.image_seed_honored():
             return f"{retries} — seed changed, judge notes applied"
         return f"{retries} — judge notes applied"
     if name == "judge":
@@ -214,7 +211,7 @@ def _fail_run(run_id: str, exc: Exception) -> None:
     copy = GENERIC_COPY
     text = str(exc)
     lowered = text.lower()
-    if any(k in lowered for k in ("gmi", "gmicloud", "gemini", "google")):
+    if any(k in lowered for k in ("pollinations", "gemini", "google")):
         copy = provider_down_copy()
     elif "elevenlabs" in text.lower():
         copy = ELEVENLABS_DOWN_COPY
@@ -349,9 +346,9 @@ def _generation_loop(run_id: str, entry: rs.RunEntry, prompt: str) -> str:
         step_prompt = _attempt_prompt(prompt, attempt, reasons)
         # Only record params the active provider actually honors — a seed in
         # a sealed receipt that the model never saw would be false provenance.
-        if config.ai_provider() == "gmicloud":
+        if providers.image_seed_honored():
             seed = base_seed + attempt
-            step_params: dict[str, Any] = {"seed": seed, "size": "1024x1024"}
+            step_params: dict[str, Any] = {"seed": seed, "width": 1024, "height": 1024}
         else:
             seed = None
             step_params = {}
@@ -427,7 +424,7 @@ def _process_iteration(
         model_name = step_obj.model if step_obj else config.image_model()
         key, digest = _seal_receipt(
             run_id, internal, "failure", provider_name, model_name,
-            _detail_sha({"prompt": prompt_used, "params": {"seed": seed, "size": "1024x1024"}}),
+            _detail_sha({"prompt": prompt_used, "params": {"seed": seed, "width": 1024, "height": 1024}}),
             _detail_sha({"error": error}),
             {"step": "generate", "error": error[:2000], "provider": provider_name,
              "attempt": attempt},
@@ -462,7 +459,7 @@ def _process_iteration(
     gen_key, gen_digest = _seal_receipt(
         run_id, internal, "generate", step_obj.provider or providers.image_provider_label(),
         step_obj.model,
-        _detail_sha({"prompt": prompt_used, "params": {"seed": seed, "size": "1024x1024"}}),
+        _detail_sha({"prompt": prompt_used, "params": {"seed": seed, "width": 1024, "height": 1024}}),
         sha,
         {"model": step_obj.model, "provider": step_obj.provider, "seed": seed,
          "attempt": attempt},
@@ -553,7 +550,7 @@ def _handle_judge_crash(
         sha = sha256_hex(image_bytes)
         _seal_receipt(
             run_id, internal, "generate", providers.image_provider_label(), config.image_model(),
-            _detail_sha({"prompt": prompt_used, "params": {"seed": seed, "size": "1024x1024"}}),
+            _detail_sha({"prompt": prompt_used, "params": {"seed": seed, "width": 1024, "height": 1024}}),
             sha,
             {"model": config.image_model(), "provider": providers.image_provider_label(),
              "seed": seed, "attempt": attempt, "note": "judge failed after generation"},
@@ -575,7 +572,10 @@ def _handle_judge_crash(
             if st.status == "running":
                 _finish_step(st, "failed", key, digest, {"error": str(exc)[:500]})
         s.status = "failed"
-        s.error = provider_down_copy()
+        s.error = (
+            "The judge model failed to score this attempt. The generated image "
+            "and the failure are sealed in your receipt chain. Try again."
+        )
 
     rs.mutate(run_id, apply)
 

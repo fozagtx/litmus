@@ -73,19 +73,12 @@ app.include_router(media.router)
 # --- health & keys ----------------------------------------------------------
 
 def _check_ai_provider() -> tuple[bool, str]:
-    provider = config.ai_provider()
-    key_env = config.ai_key_env()
-    key = config.gemini_api_key() if provider == "google" else config.gmi_api_key()
+    key = config.gemini_api_key()
     if not key:
-        return False, f"missing env var: {key_env} (AI_PROVIDER={provider})"
-    if provider == "google":
-        url = "https://generativelanguage.googleapis.com/v1beta/models"
-        headers = {"x-goog-api-key": key}
-        display = "Google Gemini"
-    else:
-        url = "https://api.gmi-serving.com/v1/models"
-        headers = {"Authorization": f"Bearer {key}"}
-        display = "GMI Cloud"
+        return False, "missing env var: GEMINI_API_KEY"
+    url = "https://generativelanguage.googleapis.com/v1beta/models"
+    headers = {"x-goog-api-key": key}
+    display = "Google Gemini"
     try:
         resp = httpx.get(url, headers=headers, timeout=8.0)
         if resp.status_code == 200:
