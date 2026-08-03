@@ -1,4 +1,4 @@
-"""AlibabaImageProvider — DashScope (Model Studio intl) image generation.
+"""AlibabaImageProvider · DashScope (Model Studio intl) image generation.
 
 Fallback image provider behind Pollinations. Uses the cheapest non-pro line
 (wan2.7-image by default) through DashScope's native async task API, verified

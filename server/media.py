@@ -1,4 +1,4 @@
-"""Media serving — streams originals, thumbnails and narration from lm-assets."""
+"""Media serving · streams originals, thumbnails and narration from lm-assets."""
 
 from __future__ import annotations
 

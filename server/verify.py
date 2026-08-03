@@ -1,4 +1,4 @@
-"""Public verification — PRD §6.6 / §9.6.
+"""Public verification · PRD §6.6 / §9.6.
 
 Lookup order: exact SHA-256 → perceptual (pHash Hamming ≤ threshold, images
 only) → none. The uploaded file is NEVER stored (R6). 25 MB cap, in-memory

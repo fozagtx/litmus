@@ -1,4 +1,4 @@
-"""Run state — in-memory registry + lm-state persistence for resumability.
+"""Run state · in-memory registry + lm-state persistence for resumability.
 
 Every transition is persisted to ``runs/{run_id}/state.json`` in lm-state.
 The persisted JSON is the public RunState shape plus a private ``_internal``
@@ -6,7 +6,7 @@ dict carrying resume bookkeeping (completed attempts, receipt chain cursor,
 base seed). ``_internal`` never leaves the API.
 
 The in-memory registry maps run_id -> RunEntry(state, internal, version,
-condition) — the condition powers SSE: every mutation bumps the version and
+condition) · the condition powers SSE: every mutation bumps the version and
 notifies waiters.
 """
 

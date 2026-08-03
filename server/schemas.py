@@ -6,7 +6,7 @@ object headed for the vault is validated against these models first
 
 Wire shapes follow PRD §9.3. Two additive fields on the manifest beyond the
 PRD's abbreviated sketch: ``status`` ("sealed" | "discarded") and
-``media_content_type`` — both required for a lossless ``reindex_from_vault``
+``media_content_type`` · both required for a lossless ``reindex_from_vault``
 (the SQLite index is a cache; the vault must be self-describing).
 """
 
@@ -35,7 +35,7 @@ def _check_utc(v: str) -> str:
 
 
 class ManifestV1(BaseModel):
-    """litmus/manifest@1 — the asset birth certificate."""
+    """litmus/manifest@1 · the asset birth certificate."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -76,7 +76,7 @@ class ManifestV1(BaseModel):
 
 
 class ReceiptV1(BaseModel):
-    """litmus/receipt@1 — one pipeline decision, hash-chained per run."""
+    """litmus/receipt@1 · one pipeline decision, hash-chained per run."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -124,7 +124,7 @@ class AnchorLeaf(BaseModel):
 
 
 class AnchorV1(BaseModel):
-    """litmus/anchor@1 — hourly Merkle root over newly sealed manifests."""
+    """litmus/anchor@1 · hourly Merkle root over newly sealed manifests."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -162,7 +162,7 @@ class ExportFile(BaseModel):
 
 
 class ExportV1(BaseModel):
-    """litmus/export@1 — signed inventory of an exported archive."""
+    """litmus/export@1 · signed inventory of an exported archive."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -234,7 +234,7 @@ def validate_locked(obj: dict[str, Any]) -> dict[str, Any]:
     """Validate an object against its declared litmus schema.
 
     Returns the round-tripped dict (by alias, exclude-none only for optional
-    absent signature — the object is returned EXACTLY as it should be stored).
+    absent signature · the object is returned EXACTLY as it should be stored).
     Raises SchemaValidationError with detail on failure. This is the R1 gate:
     call it before every vault write.
     """

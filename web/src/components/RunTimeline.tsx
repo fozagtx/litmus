@@ -85,7 +85,7 @@ export function RunTimeline({ run, live = false }: { run: RunState; live?: boole
                 {step.label || step.name}
               </span>
               <span className="truncate text-13 text-ink-2">
-                {[step.provider, step.model].filter(Boolean).join(' / ') || '—'}
+                {[step.provider, step.model].filter(Boolean).join(' / ') || '·'}
               </span>
               <span
                 className={`text-13 font-medium tabular-nums ${
@@ -114,7 +114,7 @@ export function RunTimeline({ run, live = false }: { run: RunState; live?: boole
                     <HashChip value={step.receipt_sha256} head={8} tail={0} />
                   </span>
                 ) : (
-                  <span className="text-13 text-ink-2">—</span>
+                  <span className="text-13 text-ink-2">·</span>
                 )}
               </span>
             </div>

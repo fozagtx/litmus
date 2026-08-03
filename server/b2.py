@@ -1,9 +1,9 @@
-"""Backblaze B2 access — one lazy S3StorageBackend singleton per bucket role.
+"""Backblaze B2 access · one lazy S3StorageBackend singleton per bucket role.
 
 Roles:
-    assets — lm-assets (no lock): media + thumbnails
-    vault  — lm-vault  (Object Lock COMPLIANCE): manifests, receipts, anchors
-    state  — lm-state  (no lock): resumable run state, export zips
+    assets · lm-assets (no lock): media + thumbnails
+    vault  · lm-vault  (Object Lock COMPLIANCE): manifests, receipts, anchors
+    state  · lm-state  (no lock): resumable run state, export zips
 
 ``seal_json`` is the ONLY write path into the vault: it schema-validates
 (R1), signs, canonicalizes, and puts with a per-object COMPLIANCE lock.
@@ -54,7 +54,7 @@ def backend(role: str):
     """Lazy singleton S3StorageBackend for a bucket role.
 
     Raises ConfigError with a clear message when env vars are missing or the
-    bucket is unreachable — never crashes at import time.
+    bucket is unreachable · never crashes at import time.
     """
     with _lock:
         cached = _backends.get(role)
@@ -121,7 +121,7 @@ def seal_json(role: str, key: str, obj: dict[str, Any]) -> tuple[dict[str, Any],
 
 
 def put_json(role: str, key: str, obj: dict[str, Any]) -> None:
-    """Plain (unlocked) JSON write — lm-state only."""
+    """Plain (unlocked) JSON write · lm-state only."""
     be = backend(role)
     be.put(key, canonical_bytes(obj), content_type="application/json")
 

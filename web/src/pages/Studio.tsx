@@ -261,7 +261,7 @@ export default function Studio() {
               <Card className="p-6">
                 <p className="text-15 text-ink-2">
                   No runs yet. Your first generation will appear here as a step-by-step,
-                  receipted timeline — every decision sealed as it happens.
+                  receipted timeline, every decision sealed as it happens.
                 </p>
               </Card>
             ) : pastRuns.length === 0 ? (

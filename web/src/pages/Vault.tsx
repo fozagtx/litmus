@@ -6,7 +6,7 @@ import { Card, ErrorNote, LinkButton } from '../components/ui';
 import { SkeletonRows } from '../components/SkeletonRows';
 
 const EMPTY_COPY =
-  'Nothing in the vault yet. Generate your first asset and it will appear here with its birth certificate — sealed, signed, and yours to export at any time.';
+  'Nothing in the vault yet. Generate your first asset and it will appear here with its birth certificate: sealed, signed, and yours to export at any time.';
 
 export default function Vault() {
   const [kind, setKind] = useState('');

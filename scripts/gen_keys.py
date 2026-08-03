@@ -3,7 +3,7 @@
 
 Writes the private key (PEM, mode 0600) to SIGNING_KEY_PATH (default
 data/signing_key.pem) and prints the public key + fingerprint. Refuses to
-overwrite an existing key unless --force is passed — the key is the trust
+overwrite an existing key unless --force is passed, the key is the trust
 root for every sealed record.
 """
 

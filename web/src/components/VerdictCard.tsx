@@ -29,9 +29,9 @@ export function VerdictCard({
 
   const heading =
     kind === 'exact'
-      ? 'Verified — original file.'
+      ? 'Verified. Original file.'
       : kind === 'perceptual'
-        ? 'Verified — modified copy.'
+        ? 'Verified. Modified copy.'
         : 'No record found.';
 
   const body =
@@ -41,7 +41,7 @@ export function VerdictCard({
         ? `This file is a close derivative of a sealed original${
             pct !== null ? ` (similarity ${pct}%)` : ''
           }. It has been re-encoded, cropped, or resized since sealing. The original and its history are below.`
-        : "This vault holds no sealed record matching this file. That doesn't prove the file is AI-generated or authentic — only that it wasn't sealed here.";
+        : "This vault holds no sealed record matching this file. That doesn't prove the file is AI-generated or authentic, only that it wasn't sealed here.";
 
   return (
     <div className="fade-in">

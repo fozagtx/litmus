@@ -42,7 +42,7 @@ def check_image_models() -> None:
             if result.is_terminal_failure:
                 hint = ""
                 if result.suggested_slugs:
-                    hint = f" — did you mean: {', '.join(result.suggested_slugs)}?"
+                    hint = f", did you mean: {', '.join(result.suggested_slugs)}?"
                 add(role, model, False, f"{outcome}: {result.detail or 'not found'}{hint}")
             elif outcome == "ok_authoritative":
                 add(role, model, True, "confirmed by provider catalog")
@@ -75,7 +75,7 @@ def check_tts_model() -> None:
         else:
             known = ", ".join(sorted(discovery.models)[:8]) if discovery.models else "none listed"
             add("TTS_MODEL", model, False,
-                f"{result.outcome.value}: {result.detail or 'unknown'} — catalog has: {known}")
+                f"{result.outcome.value}: {result.detail or 'unknown'}, catalog has: {known}")
     except Exception as exc:  # noqa: BLE001
         add("TTS_MODEL", model, False, str(exc))
 

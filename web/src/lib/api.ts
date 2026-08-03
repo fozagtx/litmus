@@ -7,9 +7,9 @@ import type {
   Verdict,
 } from './types';
 
-/** §8.6 generic error copy — used verbatim for any unexplained failure. */
+/** §8.6 generic error copy, used verbatim for any unexplained failure. */
 export const GENERIC_ERROR =
-  'Something failed on our side. Nothing was lost — your vault only ever gains records, it never loses them.';
+  'Something failed on our side. Nothing was lost: your vault only ever gains records, it never loses them.';
 
 export class ApiError extends Error {
   status: number;

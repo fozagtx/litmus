@@ -1,4 +1,4 @@
-"""Litmus FastAPI application — API under /api, SPA served from web/dist."""
+"""Litmus FastAPI application · API under /api, SPA served from web/dist."""
 
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI):
     try:
         if index.count_assets() == 0 and not config.missing_for("b2_vault"):
             await anyio.to_thread.run_sync(index.reindex_from_vault)
-    except Exception as exc:  # noqa: BLE001 — startup must not crash on B2 issues
+    except Exception as exc:  # noqa: BLE001 · startup must not crash on B2 issues
         logger.error("startup reindex failed: %s", exc)
     # Resume interrupted runs from lm-state.
     try:
@@ -62,7 +62,7 @@ async def _hourly_anchor() -> None:
                 logger.info("hourly anchor: nothing new to anchor")
         except asyncio.CancelledError:
             return
-        except Exception as exc:  # noqa: BLE001 — keep the loop alive
+        except Exception as exc:  # noqa: BLE001 · keep the loop alive
             logger.error("hourly anchor failed: %s", exc)
 
 
@@ -86,7 +86,7 @@ def _check_ai_provider() -> tuple[bool, str]:
         if resp.status_code in (400, 401, 403):
             return False, f"{display} rejected the API key (HTTP {resp.status_code})"
         return True, (
-            f"key set; catalog endpoint returned HTTP {resp.status_code} — "
+            f"key set; catalog endpoint returned HTTP {resp.status_code} · "
             "run scripts/check_providers.py for a live model check"
         )
     except Exception as exc:
@@ -124,7 +124,7 @@ async def health() -> dict[str, Any]:
     async def run(fn):
         try:
             return await anyio.to_thread.run_sync(fn)
-        except Exception as exc:  # noqa: BLE001 — health never crashes
+        except Exception as exc:  # noqa: BLE001 · health never crashes
             return False, str(exc)
 
     results = await asyncio.gather(
@@ -338,7 +338,7 @@ def create_export() -> dict[str, str]:
     if index.count_assets() == 0:
         raise HTTPException(
             status_code=409,
-            detail="Nothing in the vault yet — generate an asset before exporting.",
+            detail="Nothing in the vault yet · generate an asset before exporting.",
         )
     return {"export_id": export.start_export()}
 
@@ -431,7 +431,7 @@ else:
         return JSONResponse(
             {
                 "service": "litmus",
-                "note": "web/dist not built yet — API is live under /api",
+                "note": "web/dist not built yet · API is live under /api",
                 "health": "/api/health",
             }
         )

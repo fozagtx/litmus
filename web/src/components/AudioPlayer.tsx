@@ -113,7 +113,7 @@ export function AudioPlayer({ src }: { src: string }) {
           ref={canvasRef}
           onClick={seek}
           className="h-16 min-w-0 flex-1 cursor-pointer"
-          aria-label="Narration waveform — click to seek"
+          aria-label="Narration waveform, click to seek"
         />
         <span className="font-mono text-13 tabular-nums text-ink-2">
           {fmtClock(time)} / {fmtClock(duration)}

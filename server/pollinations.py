@@ -1,4 +1,4 @@
-"""PollinationsImageProvider — free, keyless image generation as a Genblaze provider.
+"""PollinationsImageProvider · free, keyless image generation as a Genblaze provider.
 
 Pollinations (https://image.pollinations.ai) serves FLUX-family image
 generation over a plain GET, no API key. This adapter makes it a first-class
@@ -101,7 +101,7 @@ class PollinationsImageProvider(SyncProvider):
             "nologo": "true",
         }
         # Pipelines pass seed via params, but genblaze normalizes it onto the
-        # canonical Step.seed field — accept either.
+        # canonical Step.seed field · accept either.
         seed = step.params.get("seed", step.seed)
         if seed is not None:
             params["seed"] = str(seed)

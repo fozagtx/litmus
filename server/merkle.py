@@ -1,4 +1,4 @@
-"""Merkle anchoring — hourly (and on-demand) roots over newly sealed manifests.
+"""Merkle anchoring · hourly (and on-demand) roots over newly sealed manifests.
 
 Leaves are the sha256 of each manifest object's bytes AS STORED in the vault,
 sorted by key for determinism. Standard binary Merkle tree: node =
@@ -44,7 +44,7 @@ def merkle_root(leaf_hashes: list[str]) -> str:
 def merkle_proof(leaf_hashes: list[str], leaf_index: int) -> list[dict[str, str]]:
     """Inclusion proof for ``leaf_hashes[leaf_index]``.
 
-    Each entry: {"position": "left"|"right", "sha256": sibling_digest} — the
+    Each entry: {"position": "left"|"right", "sha256": sibling_digest} · the
     sibling's position relative to the running hash.
     """
     if not (0 <= leaf_index < len(leaf_hashes)):

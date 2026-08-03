@@ -40,7 +40,7 @@ export function MerkleCheck({
   if (state === 'ok') {
     return (
       <p className="text-13 font-medium text-seal">
-        ✓ Merkle inclusion recomputed in-browser — proof matches the anchored root.
+        ✓ Merkle inclusion recomputed in-browser, proof matches the anchored root.
       </p>
     );
   }

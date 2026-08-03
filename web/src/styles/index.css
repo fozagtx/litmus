@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
-  Litmus design tokens — "Ledger" palette (PRD §7.1).
+  Litmus design tokens, "Ledger" palette (PRD §7.1).
   One accent color (--color-seal). No shadows anywhere: the shadow scale is
   wiped so no shadow utility can ship by accident.
 */
@@ -92,7 +92,7 @@
   animation: fade-in 150ms ease-out both;
 }
 
-/* Skeleton ledger rows — sanctioned by the §7.3 wireframe note; opacity only. */
+/* Skeleton ledger rows, sanctioned by the §7.3 wireframe note; opacity only. */
 @keyframes skeleton-pulse {
   0%,
   100% {

@@ -1,4 +1,4 @@
-"""Vault export — a signed, offline-verifiable archive of everything.
+"""Vault export · a signed, offline-verifiable archive of everything.
 
 POST /api/export spawns a background thread that assembles the zip in a temp
 dir, uploads it to lm-state ``exports/{export_id}.zip``, and records status
@@ -111,18 +111,18 @@ def _build(export_id: str) -> None:
         assets = index.all_assets()
         run_ids = sorted({a["run_id"] for a in assets})
 
-        # assets/ — originals + narrations from lm-assets.
+        # assets/ · originals + narrations from lm-assets.
         for a in assets:
             ext = _ext_for(a["media_content_type"], a["kind"])
             data = b2.get_bytes("assets", a["original_key"])
             (root / "assets" / f"{a['asset_id']}{ext}").write_bytes(data)
 
-        # manifests/ — exact sealed bytes from the vault.
+        # manifests/ · exact sealed bytes from the vault.
         for a in assets:
             data = b2.get_bytes("vault", a["manifest_key"])
             (root / "manifests" / f"{a['asset_id']}.json").write_bytes(data)
 
-        # receipts/ — per run, exact sealed bytes.
+        # receipts/ · per run, exact sealed bytes.
         for run_id in run_ids:
             run_dir = root / "receipts" / run_id
             run_dir.mkdir(parents=True, exist_ok=True)
@@ -137,7 +137,7 @@ def _build(export_id: str) -> None:
                     b2.get_bytes("vault", key)
                 )
 
-        # merkle-proofs/ — per-asset proof + all anchors.
+        # merkle-proofs/ · per-asset proof + all anchors.
         for key in b2.list_keys("vault", "anchors/"):
             if key.endswith(".json"):
                 (root / "merkle-proofs" / "anchors" / key.rsplit("/", 1)[1]).write_bytes(
@@ -179,7 +179,7 @@ def _build(export_id: str) -> None:
         shutil.copyfile(TEMPLATE_VERIFY, root / "verify.py")
         (root / "README.txt").write_text(README_TEXT, encoding="utf-8")
 
-        # export-manifest.json — signed inventory of every file above.
+        # export-manifest.json · signed inventory of every file above.
         files = []
         for path in sorted(root.rglob("*")):
             if path.is_file():
@@ -218,7 +218,7 @@ def _build(export_id: str) -> None:
                 "key": state_key(export_id),
             }
         logger.info("export %s ready (%d files)", export_id, len(files))
-    except Exception as exc:  # noqa: BLE001 — recorded honestly in status
+    except Exception as exc:  # noqa: BLE001 · recorded honestly in status
         logger.exception("export %s failed", export_id)
         with _lock:
             _exports[export_id] = {"status": "failed", "error": str(exc), "key": None}

@@ -1,4 +1,4 @@
-"""The generation pipeline — generate → judge → retry → narrate → seal.
+"""The generation pipeline · generate → judge → retry → narrate → seal.
 
 Runs synchronously in a worker thread (max 2 concurrent runs). Every step:
 (a) does real work, (b) writes run state to lm-state, (c) seals a signed
@@ -6,7 +6,7 @@ receipt to lm-vault with a COMPLIANCE lock at the moment it completes.
 Receipts are hash-chained per run via prev_receipt_sha256.
 
 Resume: run_generation consults the persisted internal bookkeeping and skips
-already-completed attempts / narration / sealing — sealed receipts and
+already-completed attempts / narration / sealing · sealed receipts and
 uploaded attempt assets are never redone.
 """
 
@@ -32,7 +32,7 @@ logger = logging.getLogger("litmus.pipeline")
 
 RUN_SEMAPHORE = threading.BoundedSemaphore(2)
 
-# PRD §8.8 — verbatim. Do not edit.
+# PRD §8.8 · verbatim. Do not edit.
 RETRY_TEMPLATE = """{original_prompt}
 
 Revision notes from art direction (address all):
@@ -53,7 +53,7 @@ ELEVENLABS_DOWN_COPY = (
     "chain. The image asset was sealed; retry narration with a new run."
 )
 GENERIC_COPY = (
-    "Something failed on our side. Nothing was lost — your vault only ever "
+    "Something failed on our side. Nothing was lost · your vault only ever "
     "gains records, it never loses them."
 )
 
@@ -140,18 +140,18 @@ def _attempt_prompt(original_prompt: str, attempt: int, prior_reasons: list[str]
 def _step_label(name: str, attempt: int, model: str) -> str:
     if name == "generate":
         if attempt == 0:
-            return f"Generate image — {providers.image_provider_display()} / {model}"
+            return f"Generate image · {providers.image_provider_display()} / {model}"
         retries = f"Retry {attempt} of {config.max_attempts() - 1}"
         # The seed only changes on providers that honor one; don't claim it did.
         if providers.image_seed_honored():
-            return f"{retries} — seed changed, judge notes applied"
-        return f"{retries} — judge notes applied"
+            return f"{retries} · seed changed, judge notes applied"
+        return f"{retries} · judge notes applied"
     if name == "judge":
-        return "Judge — scoring against your prompt"
+        return "Judge · scoring against your prompt"
     if name == "narrate":
-        return f"Narrate — ElevenLabs / {model}"
+        return f"Narrate · ElevenLabs / {model}"
     if name == "seal":
-        return "Seal — receipt locked to vault"
+        return "Seal · receipt locked to vault"
     return name
 
 
@@ -199,7 +199,7 @@ def run_generation(run_id: str) -> None:
     with RUN_SEMAPHORE:
         try:
             _run(run_id)
-        except Exception as exc:  # noqa: BLE001 — terminal guard, surfaced honestly
+        except Exception as exc:  # noqa: BLE001 · terminal guard, surfaced honestly
             logger.exception("run %s crashed", run_id)
             _fail_run(run_id, exc)
 
@@ -219,7 +219,7 @@ def _fail_run(run_id: str, exc: Exception) -> None:
     elif "elevenlabs" in text.lower():
         copy = ELEVENLABS_DOWN_COPY
 
-    # Seal an honest failure receipt for the crash itself — best effort:
+    # Seal an honest failure receipt for the crash itself · best effort:
     # if the vault is unreachable this raises and we still mark the run failed.
     try:
         internal = entry.internal
@@ -242,7 +242,7 @@ def _fail_run(run_id: str, exc: Exception) -> None:
 
     try:
         rs.mutate(run_id, apply)
-    except Exception:  # registry gone — nothing more we can do
+    except Exception:  # registry gone · nothing more we can do
         logger.exception("could not mark run %s failed", run_id)
 
 
@@ -347,7 +347,7 @@ def _generation_loop(run_id: str, entry: rs.RunEntry, prompt: str) -> str:
         else:
             reasons = []
         step_prompt = _attempt_prompt(prompt, attempt, reasons)
-        # Only record params the active provider actually honors — a seed in
+        # Only record params the active provider actually honors · a seed in
         # a sealed receipt that the model never saw would be false provenance.
         if providers.image_seed_honored():
             seed = base_seed + attempt
@@ -482,7 +482,7 @@ def _process_iteration(
     sdk_manifest_json: str | None = None
     try:
         sdk_manifest_json = result.manifest.to_canonical_json()
-    except Exception as exc:  # noqa: BLE001 — SDK manifest is complementary
+    except Exception as exc:  # noqa: BLE001 · SDK manifest is complementary
         logger.warning("could not serialize SDK manifest for %s: %s", asset_id, exc)
 
     is_last_attempt = attempt >= config.max_attempts() - 1

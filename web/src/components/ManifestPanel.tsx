@@ -66,7 +66,7 @@ export function ManifestPanel({
             {paramText ? (
               <span className="font-mono text-13">{paramText}</span>
             ) : (
-              <span className="text-ink-2">—</span>
+              <span className="text-ink-2">·</span>
             )}
           </Row>
           <Row label="SHA-256">
@@ -84,7 +84,7 @@ export function ManifestPanel({
                 {manifest.parent_asset}
               </Link>
             ) : (
-              <span className="text-ink-2">none — first of its line</span>
+              <span className="text-ink-2">none, first of its line</span>
             )}
           </Row>
           <Row label="Run">

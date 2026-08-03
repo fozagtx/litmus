@@ -37,7 +37,7 @@ export function SignatureStatus({ record }: { record: Record<string, unknown> })
   if (state === 'unavailable') {
     return (
       <span className="whitespace-nowrap text-13 text-ink-2">
-        public key unavailable — not checked
+        public key unavailable, not checked
       </span>
     );
   }

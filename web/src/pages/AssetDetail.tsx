@@ -57,7 +57,7 @@ export default function AssetDetail() {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
       <div className="grid gap-8 lg:grid-cols-[11fr_9fr] print:block">
-        {/* Preview — left 55% */}
+        {/* Preview, left 55% */}
         <div className="min-w-0">
           <h1 className="font-display text-30 text-ink">{firstWords(asset.prompt)}</h1>
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -80,7 +80,7 @@ export default function AssetDetail() {
           </div>
         </div>
 
-        {/* Panels — right 45%, stacked */}
+        {/* Panels, right 45%, stacked */}
         <div className="min-w-0 space-y-6 print:mt-8">
           <ManifestPanel manifest={manifest} anchor={anchor} />
           <ReceiptChain receipts={receipts} />

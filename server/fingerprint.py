@@ -18,7 +18,7 @@ def phash64(data: bytes) -> str:
     """64-bit perceptual hash of image bytes as 16 lowercase hex chars.
 
     Raises ``PIL.UnidentifiedImageError`` (or OSError) when the bytes are not
-    a decodable image — callers decide how to surface that.
+    a decodable image, callers decide how to surface that.
     """
     with Image.open(io.BytesIO(data)) as img:
         h = imagehash.phash(img.convert("RGB"), hash_size=8)

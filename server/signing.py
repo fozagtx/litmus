@@ -80,7 +80,7 @@ def generate_keypair(path: Path) -> Ed25519PrivateKey:
 def _load_private_key() -> Ed25519PrivateKey:
     """Load (and cache) the Ed25519 private key.
 
-    SIGNING_KEY_B64 (base64 of the PEM file) wins when set — this is how the
+    SIGNING_KEY_B64 (base64 of the PEM file) wins when set · this is how the
     key travels to PaaS deploys with ephemeral disks. Falls back to the file
     at SIGNING_KEY_PATH.
     """

@@ -98,7 +98,7 @@ export function LineagePanel({
                   showDiscarded ? 'rotate-90' : ''
                 }`}
               />
-              Discarded candidates ({discarded.length}) — kept for the record
+              Discarded candidates ({discarded.length}), kept for the record
             </button>
             {showDiscarded && (
               <div className="fade-in mt-1">
@@ -116,7 +116,7 @@ export function LineagePanel({
         )}
         {empty && (
           <p className="text-13 text-ink-2">
-            No parents or derivatives — this asset is the start of its line.
+            No parents or derivatives. This asset is the start of its line.
           </p>
         )}
       </div>

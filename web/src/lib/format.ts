@@ -11,7 +11,7 @@ export function truncMiddle(value: string, head = 4, tail = 4): string {
   return tail > 0 ? `${value.slice(0, head)}…${value.slice(-tail)}` : value.slice(0, head);
 }
 
-/** "Mar 2027" — for the sealed badge. */
+/** "Mar 2027", for the sealed badge. */
 export function fmtMonthYear(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
@@ -25,7 +25,7 @@ export function fmtDate(iso: string): string {
   return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
 }
 
-/** "2026-08-02 14:00:41 UTC" — ledger timestamps. */
+/** "2026-08-02 14:00:41 UTC", ledger timestamps. */
 export function fmtUtcStamp(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
@@ -36,7 +36,7 @@ export function fmtUtcStamp(iso: string): string {
 }
 
 export function fmtDuration(ms: number | null | undefined): string {
-  if (ms === null || ms === undefined) return '—';
+  if (ms === null || ms === undefined) return '·';
   if (ms < 1000) return `${Math.round(ms)} ms`;
   return `${(ms / 1000).toFixed(1)} s`;
 }

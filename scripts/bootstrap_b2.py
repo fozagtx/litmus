@@ -5,7 +5,7 @@ The master key cannot talk to B2's S3-compatible API (which the server uses),
 so this script uses the NATIVE B2 API once to:
 
   1. authorize and discover the account's S3 region,
-  2. create the three buckets — the vault with Object Lock enabled at
+  2. create the three buckets, the vault with Object Lock enabled at
      creation (irreversible choice) + a COMPLIANCE default retention,
   3. mint a scoped runtime application key for the server,
   4. write B2_REGION / B2_KEY_ID / B2_APP_KEY / bucket names into .env.
@@ -13,7 +13,7 @@ so this script uses the NATIVE B2 API once to:
 Reads B2_MASTER_KEY_ID / B2_MASTER_APP_KEY from .env. Idempotent: existing
 buckets are reused (the vault's lock status is verified), and a fresh runtime
 key is minted on every run (old ones can be deleted in the B2 console).
-Secrets are written to .env only — never printed.
+Secrets are written to .env only, never printed.
 """
 
 from __future__ import annotations
@@ -115,7 +115,7 @@ def main() -> int:
                 ).get("isFileLockEnabled"):
                     die(
                         f"bucket {name} exists WITHOUT Object Lock. The lock can "
-                        "only be enabled at creation — delete the bucket in the "
+                        "only be enabled at creation, delete the bucket in the "
                         "B2 console (or choose another name in .env) and rerun."
                     )
                 print(f"{role}: reusing existing bucket {name}")
@@ -142,7 +142,7 @@ def main() -> int:
         chosen[role] = bucket["bucketName"]
 
         if lock:
-            # COMPLIANCE default retention — per-object headers from the server
+            # COMPLIANCE default retention, per-object headers from the server
             # set explicit dates anyway; the default is belt and braces.
             days = int((env.get("VAULT_RETENTION_DAYS") or "7").strip() or "7")
             resp = api(
@@ -190,7 +190,7 @@ def main() -> int:
     for k, v in updates.items():
         set_key(str(ENV_PATH), k, v, quote_mode="never")
     print(f"wrote region, runtime key, and bucket names to {ENV_PATH}")
-    print("bootstrap complete — restart the server and check /api/health")
+    print("bootstrap complete, restart the server and check /api/health")
     return 0
 
 

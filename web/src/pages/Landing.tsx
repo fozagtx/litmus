@@ -29,7 +29,7 @@ export default function Landing() {
         </h1>
         <p className="mt-5 max-w-2xl text-17 text-ink-2">
           Litmus is a generation studio where every AI asset is born with a signed birth
-          certificate — stored in write-once vault storage that nobody can rewrite. Not
+          certificate, stored in write-once vault storage that nobody can rewrite. Not
           us. Not anyone.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">

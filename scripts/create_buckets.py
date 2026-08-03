@@ -5,9 +5,9 @@
 - B2_VAULT_BUCKET: created WITH Object Lock enabled (cannot be added later),
   then a default COMPLIANCE retention of VAULT_RETENTION_DAYS is applied.
 
-WARNING — COMPLIANCE MODE IS IRREVERSIBLE PER OBJECT. Once an object is
-written with a COMPLIANCE retention date, NOBODY — not you, not Litmus, not
-Backblaze support — can delete or overwrite it until that date passes.
+WARNING, COMPLIANCE MODE IS IRREVERSIBLE PER OBJECT. Once an object is
+written with a COMPLIANCE retention date, NOBODY, not you, not Litmus, not
+Backblaze support, can delete or overwrite it until that date passes.
 That is the product. Do not point this at a bucket name you care about
 reusing within the retention window.
 """
@@ -47,7 +47,7 @@ def _create_bucket(client, name: str, object_lock: bool) -> None:
     except ClientError as exc:
         code = exc.response.get("Error", {}).get("Code", "")
         if code in ("BucketAlreadyOwnedByYou", "BucketAlreadyExists"):
-            print(f"  bucket {name!r} already exists — leaving it as is")
+            print(f"  bucket {name!r} already exists, leaving it as is")
             if object_lock:
                 _assert_lock_enabled(client, name)
         else:
@@ -82,7 +82,7 @@ def main() -> int:
 
     print("=" * 72)
     print("WARNING: the vault bucket uses Object Lock in COMPLIANCE mode.")
-    print(f"Every sealed object is undeletable for {retention_days} days — by anyone,")
+    print(f"Every sealed object is undeletable for {retention_days} days, by anyone,")
     print("including you and Backblaze support. This is irreversible per object.")
     print("=" * 72)
 

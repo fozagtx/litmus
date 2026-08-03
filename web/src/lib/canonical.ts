@@ -1,5 +1,5 @@
 /**
- * Canonical JSON — must EXACTLY match the backend:
+ * Canonical JSON, must EXACTLY match the backend:
  * recursively sort object keys, JSON.stringify with no whitespace, UTF-8 encode.
  * The signature field is removed by the caller before signing/verification.
  */

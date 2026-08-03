@@ -10,7 +10,7 @@ export function ReceiptChain({ receipts }: { receipts: Receipt[] }) {
     <Card className="p-5">
       <h2 className="font-display text-22 text-ink">Receipt chain</h2>
       <p className="mt-1 text-13 text-ink-2">
-        Every pipeline decision, signed and locked — including the attempts we threw away.
+        Every pipeline decision, signed and locked, including the attempts we threw away.
       </p>
       {receipts.length === 0 ? (
         <p className="mt-4 text-13 text-ink-2">No receipts returned for this record.</p>
@@ -53,7 +53,7 @@ export function ReceiptChain({ receipts }: { receipts: Receipt[] }) {
                       {receipt.input_sha256 ? (
                         <HashChip value={receipt.input_sha256} />
                       ) : (
-                        <span className="text-ink-2">—</span>
+                        <span className="text-ink-2">·</span>
                       )}
                       <span aria-hidden className="text-ink-2">
                         →
@@ -61,7 +61,7 @@ export function ReceiptChain({ receipts }: { receipts: Receipt[] }) {
                       {receipt.output_sha256 ? (
                         <HashChip value={receipt.output_sha256} />
                       ) : (
-                        <span className="text-ink-2">—</span>
+                        <span className="text-ink-2">·</span>
                       )}
                     </span>
                   </td>

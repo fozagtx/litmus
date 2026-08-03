@@ -2,7 +2,7 @@
 
 All values are read from environment variables (loaded from the project-root
 .env via python-dotenv). Importing this module NEVER raises on missing
-credentials — validation is lazy, per subsystem, via :func:`require` so that
+credentials · validation is lazy, per subsystem, via :func:`require` so that
 /api/health can report exactly what is missing and endpoints can 503 with a
 clear message naming the env var.
 """

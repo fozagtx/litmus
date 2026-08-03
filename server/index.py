@@ -1,6 +1,6 @@
 """SQLite lookup index over the vault (data/litmus.db, WAL mode).
 
-The index is a rebuildable cache — the vault is the source of truth.
+The index is a rebuildable cache · the vault is the source of truth.
 ``reindex_from_vault`` repopulates it entirely from sealed manifests and
 anchors.
 """
@@ -268,7 +268,7 @@ def reindex_from_vault() -> int:
     """Rebuild the assets table from lm-vault manifests + anchors.
 
     Returns the number of manifests indexed. Invalid or unverifiable
-    manifests are skipped with a warning (they stay visible in the vault —
+    manifests are skipped with a warning (they stay visible in the vault ,
     the index only serves lookups).
     """
     init_db()
@@ -286,7 +286,7 @@ def reindex_from_vault() -> int:
             logger.warning("reindex: invalid manifest %s: %s; skipping", key, exc)
             continue
         original_key, thumb_key = _keys_for_kind(validated["asset_id"], validated["kind"])
-        # Variants are derived from bytes, not stored in the manifest —
+        # Variants are derived from bytes, not stored in the manifest ,
         # recompute from the original in lm-assets; fall back to the single hash.
         variants_json = None
         if validated["kind"] == "image":
@@ -296,7 +296,7 @@ def reindex_from_vault() -> int:
                 variants_json = json.dumps(
                     phash_variants(b2.get_bytes("assets", original_key))
                 )
-            except Exception as exc:  # noqa: BLE001 — index quality, not correctness
+            except Exception as exc:  # noqa: BLE001 · index quality, not correctness
                 logger.warning("reindex: could not derive variants for %s: %s", key, exc)
         upsert_asset(
             {

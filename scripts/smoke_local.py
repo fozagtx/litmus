@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local smoke test — NO network. Exercises signing, canonical JSON,
+"""Local smoke test, NO network. Exercises signing, canonical JSON,
 fingerprinting, Merkle, SQLite index, receipt chaining, and schema
 validation. Exits nonzero on any failure."""
 
@@ -82,7 +82,7 @@ def test_key_fingerprint() -> None:
 
 def _gradient_image(size: int = 512) -> bytes:
     """A structured, photo-like test pattern (pure gradients are pathological
-    for DCT-based pHash — real photos tolerate crops far better)."""
+    for DCT-based pHash, real photos tolerate crops far better)."""
     import io
     import math
 

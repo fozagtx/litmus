@@ -1,4 +1,4 @@
-"""Provider dispatch — one seam between the pipeline and the AI services.
+"""Provider dispatch · one seam between the pipeline and the AI services.
 
 Chat (the vision judge and narration text) runs on Alibaba DashScope via the
 OpenAI-wire genblaze helper, using DASHSCOPE_API_KEY. Images run on
@@ -9,7 +9,7 @@ IMAGE_PROVIDER:
 
 When Pollinations fails a whole run and a DashScope key exists, new runs
 fail over to Alibaba for a ten-minute window. ElevenLabs TTS is independent.
-Everything here returns real provider objects or raises ConfigError — there
+Everything here returns real provider objects or raises ConfigError · there
 is no mock path.
 """
 
@@ -140,7 +140,7 @@ def provider_chat(
     """Call a DashScope chat model (OpenAI wire); return the response text.
 
     force_json asks for a JSON-only response via response_mime_type.
-    Raises genblaze ProviderError on failure — callers wrap as needed.
+    Raises genblaze ProviderError on failure · callers wrap as needed.
     """
     config.require("ai")
     from genblaze import ProviderError
