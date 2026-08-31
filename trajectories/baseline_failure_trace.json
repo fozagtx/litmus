@@ -1,0 +1,27 @@
+{
+  "trajectory_id": "traj_v0_reentrancy_failure",
+  "case_id": "case_01",
+  "title": "Baseline Failure: EtherVault Reentrancy",
+  "version": "V0_Baseline",
+  "task": {
+    "contract": "EtherVault",
+    "vulnerability": "Checks-Effects-Interactions violation allowing recursive drain"
+  },
+  "steps": [
+    {
+      "step_index": 1,
+      "agent": "BaselineSingleTurnLLM",
+      "action": "Generate patch directly without tools or invariant checks",
+      "prompt": "Please fix the security vulnerability in EtherVault contract.",
+      "output": "Contract with naive misplaced balance update AFTER low-level call.",
+      "state_change": "Draft patch produced with unresolved CEI flaw."
+    },
+    {
+      "step_index": 2,
+      "agent": "BenchmarkEvaluator",
+      "action": "Run exploit proof-of-concept against baseline output",
+      "result": "EXPLOIT SUCCEEDED: Attacker drained vault via reentrancy callback.",
+      "outcome": "FAILURE (RSR = 0)"
+    }
+  ]
+}

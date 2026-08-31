@@ -1,0 +1,29 @@
+{
+  "case_id": "case_07",
+  "title": "Unchecked Low-Level Call Return Value",
+  "category": "Error Handling",
+  "difficulty": "Normal",
+  "vulnerability_type": "UNCHECKED_CALL",
+  "vulnerable_code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract RewardPool {\n    mapping(address => uint256) public rewards;\n\n    function setReward(address user, uint256 amount) external {\n        rewards[user] = amount;\n    }\n\n    function claimReward() external {\n        uint256 amount = rewards[msg.sender];\n        require(amount > 0, \"No reward\");\n\n        rewards[msg.sender] = 0;\n\n        // Unchecked call return value\n        msg.sender.call{value: amount}(\"\");\n    }\n}",
+  "vulnerability_description": "msg.sender.call{value: amount}(\"\") does not validate return success bool. If call fails or reverts, user balance is wiped to 0 with zero ether delivered.",
+  "exploit_poc": "Smart contract wallet with gas-restricted fallback attempts withdrawal; call fails silently, contract zeros out reward without paying user.",
+  "invariants": [
+    "Atomic state transition: rewards only deducted if transfer succeeds",
+    "Solvency"
+  ],
+  "regression_tests": [
+    {
+      "name": "Valid Reward Claim",
+      "description": "User claims available reward",
+      "function_called": "claimReward",
+      "caller": "0xUser1",
+      "args": {},
+      "expected_success": true
+    }
+  ],
+  "constraints": [
+    "Check (bool success, ) = msg.sender.call... and require(success, ...)"
+  ],
+  "baseline_failure_mode": "Baseline reverts the order back to CEI violation or replaces with deprecated transfer().",
+  "gold_patch_reference": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract RewardPool {\n    mapping(address => uint256) public rewards;\n\n    function setReward(address user, uint256 amount) external {\n        rewards[user] = amount;\n    }\n\n    function claimReward() external {\n        uint256 amount = rewards[msg.sender];\n        require(amount > 0, \"No reward\");\n\n        rewards[msg.sender] = 0;\n\n        (bool success, ) = msg.sender.call{value: amount}(\"\");\n        require(success, \"Transfer failed\");\n    }\n}"
+}

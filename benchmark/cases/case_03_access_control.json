@@ -1,0 +1,33 @@
+{
+  "case_id": "case_03",
+  "title": "Missing Access Control on Admin Treasury Withdrawal",
+  "category": "Access Control",
+  "difficulty": "Normal",
+  "vulnerability_type": "ACCESS_CONTROL",
+  "vulnerable_code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract Treasury {\n    address public owner;\n\n    constructor() {\n        owner = msg.sender;\n    }\n\n    function withdrawAdmin(address to, uint256 amount) external {\n        require(address(this).balance >= amount, \"Insufficient treasury\");\n        (bool success, ) = to.call{value: amount}(\"\");\n        require(success, \"Transfer failed\");\n    }\n\n    receive() external payable {}\n}",
+  "vulnerability_description": "withdrawAdmin is public/external with no modifier or authorization check, permitting any attacker to drain treasury funds.",
+  "exploit_poc": "Attacker calls Treasury.withdrawAdmin(attackerAddress, address(treasury).balance) directly without being owner.",
+  "invariants": [
+    "Admin boundary: only authorized owner can withdraw treasury funds",
+    "No unauthorized drain"
+  ],
+  "regression_tests": [
+    {
+      "name": "Owner Withdraw",
+      "description": "Owner initiates admin withdrawal",
+      "function_called": "withdrawAdmin",
+      "caller": "0xOwner",
+      "args": {
+        "to": "0xOwner",
+        "amount": 10
+      },
+      "expected_success": true
+    }
+  ],
+  "constraints": [
+    "Must keep withdrawAdmin signature",
+    "Require msg.sender == owner check or onlyOwner modifier"
+  ],
+  "baseline_failure_mode": "Baseline often removes the function entirely or changes function signature, breaking caller contracts.",
+  "gold_patch_reference": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract Treasury {\n    address public owner;\n\n    modifier onlyOwner() {\n        require(msg.sender == owner, \"Not authorized\");\n        _;\n    }\n\n    constructor() {\n        owner = msg.sender;\n    }\n\n    function withdrawAdmin(address to, uint256 amount) external onlyOwner {\n        require(address(this).balance >= amount, \"Insufficient treasury\");\n        (bool success, ) = to.call{value: amount}(\"\");\n        require(success, \"Transfer failed\");\n    }\n\n    receive() external payable {}\n}"
+}

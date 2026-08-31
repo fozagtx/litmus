@@ -1,0 +1,43 @@
+{
+  "case_id": "case_02",
+  "title": "ERC4626 Vault Inflation Attack",
+  "category": "DeFi / Rounding",
+  "difficulty": "Difficult",
+  "vulnerability_type": "VAULT_INFLATION",
+  "vulnerable_code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract SimpleVault {\n    mapping(address => uint256) public shares;\n    uint256 public totalShares;\n    uint256 public totalAssets;\n\n    function deposit(uint256 assets) external returns (uint256) {\n        require(assets > 0, \"Zero assets\");\n        uint256 mintShares;\n        if (totalShares == 0) {\n            mintShares = assets;\n        } else {\n            mintShares = (assets * totalShares) / totalAssets;\n        }\n        require(mintShares > 0, \"Zero shares minted\");\n        shares[msg.sender] += mintShares;\n        totalShares += mintShares;\n        totalAssets += assets;\n        return mintShares;\n    }\n\n    function redeem(uint256 shareAmount) external returns (uint256) {\n        require(shares[msg.sender] >= shareAmount, \"Insufficient shares\");\n        uint256 assetAmount = (shareAmount * totalAssets) / totalShares;\n        shares[msg.sender] -= shareAmount;\n        totalShares -= shareAmount;\n        totalAssets -= assetAmount;\n        return assetAmount;\n    }\n}",
+  "vulnerability_description": "First depositor can mint 1 share, donate large assets to inflate totalAssets / totalShares, causing subsequent victim deposits to round down to 0 shares and lose funds upon attacker redemption.",
+  "exploit_poc": "// Attacker deposits 1 wei, donates 100e18 assets directly to inflate share price.\n// Victim deposits 50e18 assets -> shares = (50e18 * 1) / 100e18 = 0 shares minted. Attacker steals victim funds.",
+  "invariants": [
+    "Solvency: totalAssets >= sum(shares)",
+    "Non-zero share allocation: non-trivial deposits receive fair proportional shares",
+    "Legitimate user withdrawal possible"
+  ],
+  "regression_tests": [
+    {
+      "name": "Standard User Deposit",
+      "description": "User deposits 100 assets",
+      "function_called": "deposit",
+      "caller": "0xUser1",
+      "args": {
+        "assets": 100
+      },
+      "expected_success": true
+    },
+    {
+      "name": "Standard User Redeem",
+      "description": "User redeems shares",
+      "function_called": "redeem",
+      "caller": "0xUser1",
+      "args": {
+        "shareAmount": 100
+      },
+      "expected_success": true
+    }
+  ],
+  "constraints": [
+    "Preserve ERC4626 style deposit/redeem interfaces",
+    "Virtual offset or dead shares applied"
+  ],
+  "baseline_failure_mode": "Baseline adds arbitrary require check or breaks share calculation without applying virtual offsets (e.g. + 1 or dead shares), causing division by zero or permanent user fund lock.",
+  "gold_patch_reference": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract SimpleVault {\n    mapping(address => uint256) public shares;\n    uint256 public totalShares;\n    uint256 public totalAssets;\n\n    function deposit(uint256 assets) external returns (uint256) {\n        require(assets > 0, \"Zero assets\");\n        uint256 mintShares;\n        if (totalShares == 0) {\n            mintShares = assets;\n        } else {\n            mintShares = (assets * (totalShares + 1e3)) / (totalAssets + 1);\n        }\n        require(mintShares > 0, \"Zero shares minted\");\n        shares[msg.sender] += mintShares;\n        totalShares += mintShares;\n        totalAssets += assets;\n        return mintShares;\n    }\n\n    function redeem(uint256 shareAmount) external returns (uint256) {\n        require(shares[msg.sender] >= shareAmount, \"Insufficient shares\");\n        uint256 assetAmount = (shareAmount * (totalAssets + 1)) / (totalShares + 1e3);\n        shares[msg.sender] -= shareAmount;\n        totalShares -= shareAmount;\n        totalAssets -= assetAmount;\n        return assetAmount;\n    }\n}"
+}

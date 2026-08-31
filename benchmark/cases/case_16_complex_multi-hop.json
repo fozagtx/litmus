@@ -1,0 +1,32 @@
+{
+  "case_id": "case_16",
+  "title": "Adversarial Multi-State Order Invariant Violation",
+  "category": "Complex Multi-Hop",
+  "difficulty": "Adversarial",
+  "vulnerability_type": "REENTRANCY",
+  "vulnerable_code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract MultiStateVault {\n    mapping(address => uint256) public balances;\n    mapping(address => uint256) public debt;\n    uint256 public totalVaultCollateral;\n    bool private locked;\n\n    function deposit() external payable {\n        balances[msg.sender] += msg.value;\n        totalVaultCollateral += msg.value;\n    }\n\n    function borrow(uint256 amount) external {\n        require(balances[msg.sender] >= amount * 2, \"Undercollateralized\");\n        debt[msg.sender] += amount;\n        (bool success, ) = msg.sender.call{value: amount}(\"\");\n        require(success, \"Borrow payout failed\");\n    }\n\n    function withdraw(uint256 amount) external {\n        require(balances[msg.sender] >= amount, \"Insufficient balance\");\n        require(balances[msg.sender] - amount >= debt[msg.sender] * 2, \"Remaining collateral too low\");\n\n        (bool success, ) = msg.sender.call{value: amount}(\"\");\n        require(success, \"Withdraw payout failed\");\n\n        balances[msg.sender] -= amount;\n        totalVaultCollateral -= amount;\n    }\n}",
+  "vulnerability_description": "Complex multi-state reentrancy: withdraw() sends ether before updating both balances[msg.sender] and totalVaultCollateral, allowing attacker to call borrow() during withdraw callback while balance is still considered un-withdrawn.",
+  "exploit_poc": "Attacker deposits collateral, calls withdraw(), in fallback calls borrow() which checks un-reduced balances, doubling leverage and draining vault balance.",
+  "invariants": [
+    "Solvency: totalVaultCollateral >= sum(balances)",
+    "Collateralization ratio: balances[msg.sender] >= debt[msg.sender] * 2 at all execution boundaries",
+    "No reentrant state bypass"
+  ],
+  "regression_tests": [
+    {
+      "name": "Deposit and Safe Withdraw",
+      "description": "User deposits and performs normal withdrawal",
+      "function_called": "withdraw",
+      "caller": "0xUser1",
+      "args": {
+        "amount": 50
+      },
+      "expected_success": true
+    }
+  ],
+  "constraints": [
+    "Apply nonReentrant modifier and CEI state updates before all external calls"
+  ],
+  "baseline_failure_mode": "Baseline fixes withdraw() state update but misses cross-function reentrancy into borrow(), or updates totalVaultCollateral after transfer.",
+  "gold_patch_reference": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract MultiStateVault {\n    mapping(address => uint256) public balances;\n    mapping(address => uint256) public debt;\n    uint256 public totalVaultCollateral;\n    bool private _locked;\n\n    modifier nonReentrant() {\n        require(!_locked, \"ReentrancyGuard: reentrant call\");\n        _locked = true;\n        _;\n        _locked = false;\n    }\n\n    function deposit() external payable {\n        balances[msg.sender] += msg.value;\n        totalVaultCollateral += msg.value;\n    }\n\n    function borrow(uint256 amount) external nonReentrant {\n        require(balances[msg.sender] >= amount * 2, \"Undercollateralized\");\n        debt[msg.sender] += amount;\n        (bool success, ) = msg.sender.call{value: amount}(\"\");\n        require(success, \"Borrow payout failed\");\n    }\n\n    function withdraw(uint256 amount) external nonReentrant {\n        require(balances[msg.sender] >= amount, \"Insufficient balance\");\n        require(balances[msg.sender] - amount >= debt[msg.sender] * 2, \"Remaining collateral too low\");\n\n        balances[msg.sender] -= amount;\n        totalVaultCollateral -= amount;\n\n        (bool success, ) = msg.sender.call{value: amount}(\"\");\n        require(success, \"Withdraw payout failed\");\n    }\n}"
+}

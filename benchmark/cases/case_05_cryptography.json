@@ -1,0 +1,29 @@
+{
+  "case_id": "case_05",
+  "title": "Signature Replay & Missing Nonce Invalidation",
+  "category": "Cryptography",
+  "difficulty": "Normal",
+  "vulnerability_type": "SIGNATURE_REPLAY",
+  "vulnerable_code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract SimpleAirdrop {\n    address public signer;\n\n    constructor(address _signer) {\n        signer = _signer;\n    }\n\n    function claim(address recipient, uint256 amount, bytes32 r, bytes32 s, uint8 v) external {\n        bytes32 messageHash = keccak256(abi.encodePacked(recipient, amount));\n        bytes32 ethSignedMessageHash = keccak256(abi.encodePacked(\"\\x19Ethereum Signed Message:\\n32\", messageHash));\n\n        address recovered = ecrecover(ethSignedMessageHash, v, r, s);\n        require(recovered == signer, \"Invalid signature\");\n\n        (bool success, ) = recipient.call{value: amount}(\"\");\n        require(success, \"Payout failed\");\n    }\n}",
+  "vulnerability_description": "claim() verifies valid signature but does not track nonce or mark the signature hash as consumed, permitting the recipient or any relayer to replay the signature indefinitely.",
+  "exploit_poc": "Attacker receives 1 valid signature for 1 ether airdrop and loops claim() 100 times to drain contract balance.",
+  "invariants": [
+    "Single-use signature authorization: each nonce/signature can only be claimed once",
+    "Balance conservation"
+  ],
+  "regression_tests": [
+    {
+      "name": "First Valid Claim",
+      "description": "User claims valid airdrop",
+      "function_called": "claim",
+      "caller": "0xUser1",
+      "args": {},
+      "expected_success": true
+    }
+  ],
+  "constraints": [
+    "Include mapping(address => uint256) public nonces or mapping(bytes32 => bool) public executed"
+  ],
+  "baseline_failure_mode": "Baseline adds nonce to function arguments without incrementing or checking storage state.",
+  "gold_patch_reference": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract SimpleAirdrop {\n    address public signer;\n    mapping(bytes32 => bool) public usedSignatures;\n\n    constructor(address _signer) {\n        signer = _signer;\n    }\n\n    function claim(address recipient, uint256 amount, bytes32 r, bytes32 s, uint8 v) external {\n        bytes32 messageHash = keccak256(abi.encodePacked(recipient, amount));\n        bytes32 ethSignedMessageHash = keccak256(abi.encodePacked(\"\\x19Ethereum Signed Message:\\n32\", messageHash));\n\n        require(!usedSignatures[ethSignedMessageHash], \"Signature already used\");\n\n        address recovered = ecrecover(ethSignedMessageHash, v, r, s);\n        require(recovered == signer, \"Invalid signature\");\n\n        usedSignatures[ethSignedMessageHash] = true;\n\n        (bool success, ) = recipient.call{value: amount}(\"\");\n        require(success, \"Payout failed\");\n    }\n}"
+}

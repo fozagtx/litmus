@@ -1,0 +1,31 @@
+{
+  "case_id": "case_11",
+  "title": "Uninitialized Proxy Logic Contract Owner",
+  "category": "Upgradeable Proxies",
+  "difficulty": "Normal",
+  "vulnerability_type": "ACCESS_CONTROL",
+  "vulnerable_code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract LogicV1 {\n    address public owner;\n    bool public initialized;\n\n    function initialize(address _owner) external {\n        require(!initialized, \"Already initialized\");\n        initialized = true;\n        owner = _owner;\n    }\n\n    function upgradeToAndCall(address newImplementation, bytes calldata data) external {\n        require(msg.sender == owner, \"Unauthorized\");\n        // upgrade logic...\n    }\n}",
+  "vulnerability_description": "Logic contract implementation is uninitialized upon deployment. Attacker can call initialize(attacker) on the logic contract directly and selfdestruct or compromise it.",
+  "exploit_poc": "Attacker directly invokes LogicV1.initialize(attacker) on unproxied implementation contract, becoming owner.",
+  "invariants": [
+    "Constructor locks logic implementation initialization",
+    "Proxy caller can still initialize proxy instance once"
+  ],
+  "regression_tests": [
+    {
+      "name": "Proxy Initialization",
+      "description": "Initialize proxy instance",
+      "function_called": "initialize",
+      "caller": "0xOwner",
+      "args": {
+        "_owner": "0xOwner"
+      },
+      "expected_success": true
+    }
+  ],
+  "constraints": [
+    "Add constructor() { initialized = true; } or _disableInitializers()"
+  ],
+  "baseline_failure_mode": "Baseline removes initialize function, preventing proxy instantiation.",
+  "gold_patch_reference": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract LogicV1 {\n    address public owner;\n    bool public initialized;\n\n    constructor() {\n        initialized = true;\n    }\n\n    function initialize(address _owner) external {\n        require(!initialized, \"Already initialized\");\n        initialized = true;\n        owner = _owner;\n    }\n\n    function upgradeToAndCall(address newImplementation, bytes calldata data) external {\n        require(msg.sender == owner, \"Unauthorized\");\n    }\n}"
+}

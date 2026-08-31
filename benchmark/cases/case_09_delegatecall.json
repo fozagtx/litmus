@@ -1,0 +1,29 @@
+{
+  "case_id": "case_09",
+  "title": "Arbitrary Delegatecall to Untrusted Target",
+  "category": "Delegatecall",
+  "difficulty": "Difficult",
+  "vulnerability_type": "ARBITRARY_DELEGATECALL",
+  "vulnerable_code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract MultiCaller {\n    address public owner;\n\n    constructor() {\n        owner = msg.sender;\n    }\n\n    function execute(address target, bytes calldata data) external returns (bytes memory) {\n        // Arbitrary delegatecall allows user-supplied target to overwrite owner slot in MultiCaller storage\n        (bool success, bytes memory result) = target.delegatecall(data);\n        require(success, \"Delegatecall failed\");\n        return result;\n    }\n}",
+  "vulnerability_description": "execute() executes delegatecall to arbitrary caller-supplied address, allowing attacker to supply a malicious contract that overwrites slot 0 (owner) or executes selfdestruct.",
+  "exploit_poc": "Attacker deploys ExploitContract with storage layout matching MultiCaller, calls execute(exploit, setOwnerData) and hijacks contract ownership.",
+  "invariants": [
+    "Storage integrity: only whitelisted implementations can be invoked via delegatecall",
+    "Owner storage slot cannot be modified by arbitrary callers"
+  ],
+  "regression_tests": [
+    {
+      "name": "Owner Whitelisted Execution",
+      "description": "Execute approved logic",
+      "function_called": "execute",
+      "caller": "0xOwner",
+      "args": {},
+      "expected_success": true
+    }
+  ],
+  "constraints": [
+    "Add mapping(address => bool) public allowedTargets with onlyOwner configuration"
+  ],
+  "baseline_failure_mode": "Baseline changes delegatecall to regular call without preserving return types or breaking caller interfaces.",
+  "gold_patch_reference": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract MultiCaller {\n    address public owner;\n    mapping(address => bool) public allowedTargets;\n\n    modifier onlyOwner() {\n        require(msg.sender == owner, \"Unauthorized\");\n        _;\n    }\n\n    constructor() {\n        owner = msg.sender;\n    }\n\n    function setAllowedTarget(address target, bool allowed) external onlyOwner {\n        allowedTargets[target] = allowed;\n    }\n\n    function execute(address target, bytes calldata data) external returns (bytes memory) {\n        require(allowedTargets[target], \"Target not allowed\");\n        (bool success, bytes memory result) = target.delegatecall(data);\n        require(success, \"Delegatecall failed\");\n        return result;\n    }\n}"
+}

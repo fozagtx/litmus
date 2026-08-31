@@ -1,0 +1,29 @@
+{
+  "case_id": "case_04",
+  "title": "Oracle Staleness & Incomplete Round Validation",
+  "category": "Oracles",
+  "difficulty": "Difficult",
+  "vulnerability_type": "ORACLE_STALENESS",
+  "vulnerable_code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ninterface IAggregatorV3 {\n    function latestRoundData() external view returns (\n        uint80 roundId,\n        int256 answer,\n        uint256 startedAt,\n        uint256 updatedAt,\n        uint80 answeredInRound\n    );\n}\n\ncontract PriceConsumer {\n    IAggregatorV3 public priceFeed;\n\n    constructor(address _feed) {\n        priceFeed = IAggregatorV3(_feed);\n    }\n\n    function getLatestPrice() public view returns (uint256) {\n        (, int256 price, , , ) = priceFeed.latestRoundData();\n        require(price > 0, \"Invalid price\");\n        return uint256(price);\n    }\n}",
+  "vulnerability_description": "getLatestPrice ignores round completeness (answeredInRound < roundId) and timestamp freshness (updatedAt stale), allowing exploitation during oracle stalls.",
+  "exploit_poc": "Oracle sequencer stalls, price remains frozen from 3 days ago. Attacker executes liquidation/borrowing arbitrage at stale price.",
+  "invariants": [
+    "Price Freshness: updatedAt must be within max staleness threshold (e.g. 3600 seconds)",
+    "Round Completeness: answeredInRound >= roundId"
+  ],
+  "regression_tests": [
+    {
+      "name": "Valid Fresh Price Query",
+      "description": "Fetches active valid price",
+      "function_called": "getLatestPrice",
+      "caller": "0xUser1",
+      "args": {},
+      "expected_success": true
+    }
+  ],
+  "constraints": [
+    "Validate updatedAt > 0 and answeredInRound >= roundId and block.timestamp - updatedAt <= 3600"
+  ],
+  "baseline_failure_mode": "Baseline forgets answeredInRound check or hardcodes fixed block number causing compilation issues.",
+  "gold_patch_reference": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ninterface IAggregatorV3 {\n    function latestRoundData() external view returns (\n        uint80 roundId,\n        int256 answer,\n        uint256 startedAt,\n        uint256 updatedAt,\n        uint80 answeredInRound\n    );\n}\n\ncontract PriceConsumer {\n    IAggregatorV3 public priceFeed;\n    uint256 public constant MAX_STALENESS = 3600;\n\n    constructor(address _feed) {\n        priceFeed = IAggregatorV3(_feed);\n    }\n\n    function getLatestPrice() public view returns (uint256) {\n        (uint80 roundId, int256 price, , uint256 updatedAt, uint80 answeredInRound) = priceFeed.latestRoundData();\n        require(price > 0, \"Invalid price\");\n        require(updatedAt > 0, \"Round incomplete\");\n        require(answeredInRound >= roundId, \"Stale round data\");\n        require(block.timestamp - updatedAt <= MAX_STALENESS, \"Price data too stale\");\n        return uint256(price);\n    }\n}"
+}

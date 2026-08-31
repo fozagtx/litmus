@@ -1,0 +1,29 @@
+{
+  "case_id": "case_12",
+  "title": "Strict Balance Equality DoS",
+  "category": "DoS",
+  "difficulty": "Normal",
+  "vulnerability_type": "STRICT_BALANCE_EQUALITY",
+  "vulnerable_code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract MilestoneGame {\n    uint256 public constant TARGET_BALANCE = 10 ether;\n    address public winner;\n\n    function play() external payable {\n        require(msg.value == 1 ether, \"Must deposit 1 ether\");\n        // Strict equality check\n        if (address(this).balance == TARGET_BALANCE) {\n            winner = msg.sender;\n        }\n    }\n\n    function claimPrize() external {\n        require(msg.sender == winner, \"Not winner\");\n        (bool success, ) = msg.sender.call{value: address(this).balance}(\"\");\n        require(success, \"Failed\");\n    }\n}",
+  "vulnerability_description": "Strict equality address(this).balance == TARGET_BALANCE can be permanently bricked by forcibly sending ether via selfdestruct or block reward, breaking game completion.",
+  "exploit_poc": "Attacker uses selfdestruct to forcibly send 0.1 ether to MilestoneGame. balance will never equal exact integer TARGET_BALANCE.",
+  "invariants": [
+    "Game progression is robust against forced ether donations",
+    "address(this).balance >= TARGET_BALANCE condition"
+  ],
+  "regression_tests": [
+    {
+      "name": "Play Step",
+      "description": "Deposit 1 ether",
+      "function_called": "play",
+      "caller": "0xUser1",
+      "args": {},
+      "expected_success": true
+    }
+  ],
+  "constraints": [
+    "Use >= comparison instead of =="
+  ],
+  "baseline_failure_mode": "Baseline adds arbitrary require that prevents all deposits.",
+  "gold_patch_reference": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract MilestoneGame {\n    uint256 public constant TARGET_BALANCE = 10 ether;\n    address public winner;\n\n    function play() external payable {\n        require(msg.value == 1 ether, \"Must deposit 1 ether\");\n        if (address(this).balance >= TARGET_BALANCE && winner == address(0)) {\n            winner = msg.sender;\n        }\n    }\n\n    function claimPrize() external {\n        require(msg.sender == winner, \"Not winner\");\n        (bool success, ) = msg.sender.call{value: address(this).balance}(\"\");\n        require(success, \"Failed\");\n    }\n}"
+}

@@ -1,0 +1,31 @@
+{
+  "case_id": "case_06",
+  "title": "Precision Loss via Division Before Multiplication",
+  "category": "Arithmetic",
+  "difficulty": "Normal",
+  "vulnerability_type": "PRECISION_LOSS",
+  "vulnerable_code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract FeeDistributor {\n    uint256 public feeBasisPoints = 250; // 2.5%\n    uint256 public constant BPS_DENOMINATOR = 10000;\n\n    function calculateFee(uint256 amount) public view returns (uint256) {\n        // Bug: amount / BPS_DENOMINATOR rounds down to 0 for any amount < 10000\n        uint256 unitFee = amount / BPS_DENOMINATOR;\n        return unitFee * feeBasisPoints;\n    }\n\n    function processPayment(uint256 amount) external payable returns (uint256 fee) {\n        fee = calculateFee(amount);\n        return fee;\n    }\n}",
+  "vulnerability_description": "amount / BPS_DENOMINATOR truncates to zero for amounts under 10000, allowing users to make small transfers and completely evade protocol fees.",
+  "exploit_poc": "Attacker splits a 1,000,000 token transaction into 100 transactions of 9,999 tokens. Fee charged on each is (9999 / 10000) * 250 = 0 tokens.",
+  "invariants": [
+    "Strict Non-Negative Fee Proportionality: fee == (amount * feeBasisPoints) / BPS_DENOMINATOR",
+    "Zero evasion on sub-10000 amounts"
+  ],
+  "regression_tests": [
+    {
+      "name": "Standard Fee Calculation",
+      "description": "Calculate fee for 100,000 amount",
+      "function_called": "calculateFee",
+      "caller": "0xUser1",
+      "args": {
+        "amount": 100000
+      },
+      "expected_success": true
+    }
+  ],
+  "constraints": [
+    "Multiply first before dividing: (amount * feeBasisPoints) / BPS_DENOMINATOR"
+  ],
+  "baseline_failure_mode": "Baseline attempts floating point conversions or introduces off-by-one errors.",
+  "gold_patch_reference": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract FeeDistributor {\n    uint256 public feeBasisPoints = 250; // 2.5%\n    uint256 public constant BPS_DENOMINATOR = 10000;\n\n    function calculateFee(uint256 amount) public view returns (uint256) {\n        return (amount * feeBasisPoints) / BPS_DENOMINATOR;\n    }\n\n    function processPayment(uint256 amount) external payable returns (uint256 fee) {\n        fee = calculateFee(amount);\n        return fee;\n    }\n}"
+}

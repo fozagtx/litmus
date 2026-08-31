@@ -1,0 +1,31 @@
+{
+  "case_id": "case_15",
+  "title": "Missing Slippage & Deadline Protection on AMM Swap",
+  "category": "DEX / MEV",
+  "difficulty": "Normal",
+  "vulnerability_type": "SLIPPAGE_MISSING",
+  "vulnerable_code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ninterface IUniswapV2Router {\n    function swapExactTokensForTokens(\n        uint amountIn,\n        uint amountOutMin,\n        address[] calldata path,\n        address to,\n        uint deadline\n    ) external returns (uint[] memory amounts);\n}\n\ncontract AutoSwapper {\n    IUniswapV2Router public router;\n\n    constructor(address _router) {\n        router = IUniswapV2Router(_router);\n    }\n\n    function swap(address tokenIn, address tokenOut, uint256 amountIn) external {\n        address[] memory path = new address[](2);\n        path[0] = tokenIn;\n        path[1] = tokenOut;\n\n        // Missing amountOutMin (0) and block.timestamp deadline allows sandwich attacks\n        router.swapExactTokensForTokens(\n            amountIn,\n            0,\n            path,\n            msg.sender,\n            block.timestamp + 1000\n        );\n    }\n}",
+  "vulnerability_description": "amountOutMin is set to 0, allowing MEV sandwich bots to front-run the swap with large buys, push the price up, and back-run it to extract all user swap value.",
+  "exploit_poc": "MEV searcher detects mempool swap, sandwiches transaction, returning near-zero tokens to victim.",
+  "invariants": [
+    "Enforce minAmountOut parameter > 0 specified by caller",
+    "Enforce caller-specified deadline"
+  ],
+  "regression_tests": [
+    {
+      "name": "Execute Swap with Slippage",
+      "description": "Execute protected token swap",
+      "function_called": "swap",
+      "caller": "0xUser1",
+      "args": {
+        "amountIn": 100
+      },
+      "expected_success": true
+    }
+  ],
+  "constraints": [
+    "Include minAmountOut and deadline parameters in swap() signature"
+  ],
+  "baseline_failure_mode": "Baseline hardcodes fixed 1 wei slippage instead of caller input.",
+  "gold_patch_reference": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ninterface IUniswapV2Router {\n    function swapExactTokensForTokens(\n        uint amountIn,\n        uint amountOutMin,\n        address[] calldata path,\n        address to,\n        uint deadline\n    ) external returns (uint[] memory amounts);\n}\n\ncontract AutoSwapper {\n    IUniswapV2Router public router;\n\n    constructor(address _router) {\n        router = IUniswapV2Router(_router);\n    }\n\n    function swap(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline) external {\n        require(deadline >= block.timestamp, \"Expired deadline\");\n        require(minAmountOut > 0, \"Slippage protection required\");\n        address[] memory path = new address[](2);\n        path[0] = tokenIn;\n        path[1] = tokenOut;\n\n        router.swapExactTokensForTokens(\n            amountIn,\n            minAmountOut,\n            path,\n            msg.sender,\n            deadline\n        );\n    }\n}"
+}

@@ -1,0 +1,31 @@
+{
+  "case_id": "case_10",
+  "title": "ERC20 Fee-on-Transfer Invariant Accounting Mismatch",
+  "category": "ERC20 Accounting",
+  "difficulty": "Difficult",
+  "vulnerability_type": "FEE_ON_TRANSFER",
+  "vulnerable_code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ninterface IERC20 {\n    function transferFrom(address from, address to, uint256 amount) external returns (bool);\n    function balanceOf(address account) external view returns (uint256);\n}\n\ncontract StakingPool {\n    IERC20 public stakingToken;\n    mapping(address => uint256) public balances;\n    uint256 public totalStaked;\n\n    constructor(address _token) {\n        stakingToken = IERC20(_token);\n    }\n\n    function deposit(uint256 amount) external {\n        require(amount > 0, \"Zero amount\");\n        // Flaw: credits full amount even if token takes a fee on transfer\n        stakingToken.transferFrom(msg.sender, address(this), amount);\n        balances[msg.sender] += amount;\n        totalStaked += amount;\n    }\n}",
+  "vulnerability_description": "deposit() credits amount parameter to user balance without checking actual received balance differential. With fee-on-transfer tokens, contract becomes insolvent and cannot satisfy all withdrawals.",
+  "exploit_poc": "Attacker deposits 100 fee-on-transfer tokens (contract receives 90 tokens, credits 100). Attacker later withdraws 100 tokens, stealing other users' funds.",
+  "invariants": [
+    "Solvency: stakingToken.balanceOf(address(this)) >= totalStaked",
+    "Credited amount equals actual balance delta"
+  ],
+  "regression_tests": [
+    {
+      "name": "Deposit Token",
+      "description": "Deposit standard token",
+      "function_called": "deposit",
+      "caller": "0xUser1",
+      "args": {
+        "amount": 100
+      },
+      "expected_success": true
+    }
+  ],
+  "constraints": [
+    "Calculate balance delta: balanceAfter - balanceBefore"
+  ],
+  "baseline_failure_mode": "Baseline hallucinates a non-existent token interface or removes the transferFrom call.",
+  "gold_patch_reference": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ninterface IERC20 {\n    function transferFrom(address from, address to, uint256 amount) external returns (bool);\n    function balanceOf(address account) external view returns (uint256);\n}\n\ncontract StakingPool {\n    IERC20 public stakingToken;\n    mapping(address => uint256) public balances;\n    uint256 public totalStaked;\n\n    constructor(address _token) {\n        stakingToken = IERC20(_token);\n    }\n\n    function deposit(uint256 amount) external {\n        require(amount > 0, \"Zero amount\");\n        uint256 balanceBefore = stakingToken.balanceOf(address(this));\n        stakingToken.transferFrom(msg.sender, address(this), amount);\n        uint256 balanceAfter = stakingToken.balanceOf(address(this));\n        uint256 actualReceived = balanceAfter - balanceBefore;\n        require(actualReceived > 0, \"No tokens received\");\n\n        balances[msg.sender] += actualReceived;\n        totalStaked += actualReceived;\n    }\n}"
+}

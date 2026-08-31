@@ -1,0 +1,31 @@
+{
+  "case_id": "case_14",
+  "title": "Governance Voting Power Double-Spend",
+  "category": "Governance",
+  "difficulty": "Difficult",
+  "vulnerability_type": "VOTING_DOUBLE_SPEND",
+  "vulnerable_code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract GovernanceToken {\n    mapping(address => uint256) public balances;\n    mapping(uint256 => mapping(address => bool)) public hasVoted;\n    mapping(uint256 => uint256) public proposalVotes;\n\n    function transfer(address to, uint256 amount) external returns (bool) {\n        require(balances[msg.sender] >= amount, \"Low balance\");\n        balances[msg.sender] -= amount;\n        balances[to] += amount;\n        return true;\n    }\n\n    function vote(uint256 proposalId) external {\n        require(!hasVoted[proposalId][msg.sender], \"Already voted\");\n        uint256 weight = balances[msg.sender];\n        require(weight > 0, \"No voting weight\");\n\n        hasVoted[proposalId][msg.sender] = true;\n        proposalVotes[proposalId] += weight;\n    }\n}",
+  "vulnerability_description": "vote() reads live balances without snapshot/checkpoints. Attacker can vote with balance, transfer tokens to secondary wallet in same block, and vote again, multiplying voting power arbitrarily.",
+  "exploit_poc": "Attacker holds 1,000 tokens. Calls vote(1), transfers 1,000 tokens to wallet 2, wallet 2 calls vote(1), multiplying votes 100x across Sybil wallets.",
+  "invariants": [
+    "Voting power bounded by snapshot checkpoint balance at proposal creation block",
+    "Single vote weight per token unit"
+  ],
+  "regression_tests": [
+    {
+      "name": "Standard Vote",
+      "description": "Voter casts valid vote",
+      "function_called": "vote",
+      "caller": "0xUser1",
+      "args": {
+        "proposalId": 1
+      },
+      "expected_success": true
+    }
+  ],
+  "constraints": [
+    "Track checkpoint / snapshot block or lock voting tokens during active voting period"
+  ],
+  "baseline_failure_mode": "Baseline introduces mapping syntax errors or fails to lock voting balances.",
+  "gold_patch_reference": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract GovernanceToken {\n    mapping(address => uint256) public balances;\n    mapping(address => uint256) public lockedUntilProposal;\n    mapping(uint256 => mapping(address => bool)) public hasVoted;\n    mapping(uint256 => uint256) public proposalVotes;\n\n    function transfer(address to, uint256 amount) external returns (bool) {\n        require(balances[msg.sender] >= amount, \"Low balance\");\n        require(block.number > lockedUntilProposal[msg.sender], \"Tokens locked in active vote\");\n        balances[msg.sender] -= amount;\n        balances[to] += amount;\n        return true;\n    }\n\n    function vote(uint256 proposalId, uint256 proposalEndBlock) external {\n        require(!hasVoted[proposalId][msg.sender], \"Already voted\");\n        uint256 weight = balances[msg.sender];\n        require(weight > 0, \"No voting weight\");\n\n        hasVoted[proposalId][msg.sender] = true;\n        if (proposalEndBlock > lockedUntilProposal[msg.sender]) {\n            lockedUntilProposal[msg.sender] = proposalEndBlock;\n        }\n        proposalVotes[proposalId] += weight;\n    }\n}"
+}

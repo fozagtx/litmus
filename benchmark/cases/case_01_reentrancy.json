@@ -1,0 +1,30 @@
+{
+  "case_id": "case_01",
+  "title": "EtherVault Reentrancy Drain",
+  "category": "Reentrancy",
+  "difficulty": "Normal",
+  "vulnerability_type": "REENTRANCY",
+  "vulnerable_code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract EtherVault {\n    mapping(address => uint256) public balances;\n\n    function deposit() external payable {\n        balances[msg.sender] += msg.value;\n    }\n\n    function withdraw() external {\n        uint256 balance = balances[msg.sender];\n        require(balance > 0, \"No balance\");\n\n        (bool success, ) = msg.sender.call{value: balance}(\"\");\n        require(success, \"Transfer failed\");\n\n        balances[msg.sender] = 0;\n    }\n}",
+  "vulnerability_description": "EtherVault updates balances[msg.sender] AFTER sending ether to msg.sender via low-level call, violating Checks-Effects-Interactions and allowing recursive withdrawal drain.",
+  "exploit_poc": "contract Attacker {\n    EtherVault public vault;\n    constructor(address _vault) { vault = EtherVault(_vault); }\n    receive() external payable {\n        if (address(vault).balance >= 1 ether) { vault.withdraw(); }\n    }\n    function attack() external payable {\n        vault.deposit{value: 1 ether}();\n        vault.withdraw();\n    }\n}",
+  "invariants": [
+    "Solvency: sum(balances) <= address(this).balance",
+    "Legitimate user withdrawal: users can withdraw their deposited balance"
+  ],
+  "regression_tests": [
+    {
+      "name": "Legitimate Deposit and Withdraw",
+      "description": "User deposits 1 ether and withdraws 1 ether",
+      "function_called": "withdraw",
+      "caller": "0xUser1",
+      "args": {},
+      "expected_success": true
+    }
+  ],
+  "constraints": [
+    "Must retain withdraw() and deposit() interface",
+    "Gas efficient"
+  ],
+  "baseline_failure_mode": "Baseline often adds reentrancy lock without updating balance before call, or deletes transfer, breaking legitimate withdrawals.",
+  "gold_patch_reference": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract EtherVault {\n    mapping(address => uint256) public balances;\n\n    function deposit() external payable {\n        balances[msg.sender] += msg.value;\n    }\n\n    function withdraw() external {\n        uint256 balance = balances[msg.sender];\n        require(balance > 0, \"No balance\");\n\n        balances[msg.sender] = 0;\n\n        (bool success, ) = msg.sender.call{value: balance}(\"\");\n        require(success, \"Transfer failed\");\n    }\n}"
+}

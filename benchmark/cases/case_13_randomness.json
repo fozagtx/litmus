@@ -1,0 +1,29 @@
+{
+  "case_id": "case_13",
+  "title": "Block Timestamp Manipulation in Lottery",
+  "category": "Randomness",
+  "difficulty": "Normal",
+  "vulnerability_type": "TIMESTAMP_MANIPULATION",
+  "vulnerable_code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract TimestampLottery {\n    address public winner;\n\n    function draw() external {\n        // Miner can manipulate block.timestamp by +/- 15 seconds to win\n        require(block.timestamp % 15 == 0, \"Not lucky time\");\n        winner = msg.sender;\n    }\n}",
+  "vulnerability_description": "Using block.timestamp for winning conditions allows miners/validators to manipulate block timestamps to satisfy the condition.",
+  "exploit_poc": "Miner sets timestamp = 1700000005 (divisible by 15) to guarantee winning transaction included in their mined block.",
+  "invariants": [
+    "Fair winner selection not dependent on validator timestamp malleability",
+    "Predictable verifiable state transition"
+  ],
+  "regression_tests": [
+    {
+      "name": "Draw Lottery",
+      "description": "Execute draw flow",
+      "function_called": "draw",
+      "caller": "0xUser1",
+      "args": {},
+      "expected_success": true
+    }
+  ],
+  "constraints": [
+    "Replace modular timestamp check with secure commit-reveal or verifiable randomness interface"
+  ],
+  "baseline_failure_mode": "Baseline removes draw requirement entirely, making every caller instantly win.",
+  "gold_patch_reference": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ncontract TimestampLottery {\n    address public winner;\n    bytes32 public secretCommitment;\n    address public owner;\n\n    constructor() {\n        owner = msg.sender;\n    }\n\n    function setCommitment(bytes32 _commitment) external {\n        require(msg.sender == owner, \"Unauthorized\");\n        secretCommitment = _commitment;\n    }\n\n    function draw(string calldata revealSecret) external {\n        require(keccak256(abi.encodePacked(revealSecret)) == secretCommitment, \"Invalid reveal\");\n        winner = msg.sender;\n    }\n}"
+}

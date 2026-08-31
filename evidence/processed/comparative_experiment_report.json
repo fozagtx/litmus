@@ -1,0 +1,127 @@
+{
+  "versions": [
+    "V0_Baseline",
+    "V1_ToolsOnly",
+    "V2_PlannerState",
+    "V3_VerifierGate",
+    "Final_ClosedLoop"
+  ],
+  "aggregate_metrics": {
+    "V0_Baseline": {
+      "version": "V0_Baseline",
+      "total_cases": 16,
+      "successful_cases": 3,
+      "remediation_success_rate": 18.75,
+      "compilation_pass_rate": 100.0,
+      "exploit_neutralization_rate": 18.75,
+      "invariant_preservation_rate": 87.5,
+      "regression_freedom_rate": 100.0,
+      "mean_latency_seconds": 0.0,
+      "mean_retries": 0.0,
+      "mean_tool_calls": 0.0,
+      "total_cost_usd": 0.08
+    },
+    "V1_ToolsOnly": {
+      "version": "V1_ToolsOnly",
+      "total_cases": 16,
+      "successful_cases": 5,
+      "remediation_success_rate": 31.25,
+      "compilation_pass_rate": 100.0,
+      "exploit_neutralization_rate": 31.25,
+      "invariant_preservation_rate": 93.75,
+      "regression_freedom_rate": 100.0,
+      "mean_latency_seconds": 0.0,
+      "mean_retries": 0.0,
+      "mean_tool_calls": 2.0,
+      "total_cost_usd": 0.192
+    },
+    "V2_PlannerState": {
+      "version": "V2_PlannerState",
+      "total_cases": 16,
+      "successful_cases": 15,
+      "remediation_success_rate": 93.75,
+      "compilation_pass_rate": 100.0,
+      "exploit_neutralization_rate": 93.75,
+      "invariant_preservation_rate": 100.0,
+      "regression_freedom_rate": 100.0,
+      "mean_latency_seconds": 0.0,
+      "mean_retries": 0.0,
+      "mean_tool_calls": 3.0,
+      "total_cost_usd": 0.4
+    },
+    "V3_VerifierGate": {
+      "version": "V3_VerifierGate",
+      "total_cases": 16,
+      "successful_cases": 16,
+      "remediation_success_rate": 100.0,
+      "compilation_pass_rate": 100.0,
+      "exploit_neutralization_rate": 100.0,
+      "invariant_preservation_rate": 100.0,
+      "regression_freedom_rate": 100.0,
+      "mean_latency_seconds": 0.0,
+      "mean_retries": 0.0,
+      "mean_tool_calls": 6.0,
+      "total_cost_usd": 0.56
+    },
+    "Final_ClosedLoop": {
+      "version": "Final_ClosedLoop",
+      "total_cases": 16,
+      "successful_cases": 16,
+      "remediation_success_rate": 100.0,
+      "compilation_pass_rate": 100.0,
+      "exploit_neutralization_rate": 100.0,
+      "invariant_preservation_rate": 100.0,
+      "regression_freedom_rate": 100.0,
+      "mean_latency_seconds": 0.0,
+      "mean_retries": 0.0,
+      "mean_tool_calls": 3.0,
+      "total_cost_usd": 0.72
+    }
+  },
+  "deltas_vs_baseline": {
+    "V1_ToolsOnly": {
+      "baseline_version": "V0_Baseline",
+      "target_version": "V1_ToolsOnly",
+      "absolute_delta_rsr": 12.5,
+      "relative_delta_rsr": 66.67,
+      "latency_delta_seconds": 0.0,
+      "cost_delta_usd": 0.112,
+      "compilation_delta": 0.0,
+      "exploit_neutralization_delta": 12.5,
+      "invariant_delta": 6.25
+    },
+    "V2_PlannerState": {
+      "baseline_version": "V0_Baseline",
+      "target_version": "V2_PlannerState",
+      "absolute_delta_rsr": 75.0,
+      "relative_delta_rsr": 400.0,
+      "latency_delta_seconds": 0.0,
+      "cost_delta_usd": 0.32,
+      "compilation_delta": 0.0,
+      "exploit_neutralization_delta": 75.0,
+      "invariant_delta": 12.5
+    },
+    "V3_VerifierGate": {
+      "baseline_version": "V0_Baseline",
+      "target_version": "V3_VerifierGate",
+      "absolute_delta_rsr": 81.25,
+      "relative_delta_rsr": 433.33,
+      "latency_delta_seconds": 0.0,
+      "cost_delta_usd": 0.48,
+      "compilation_delta": 0.0,
+      "exploit_neutralization_delta": 81.25,
+      "invariant_delta": 12.5
+    },
+    "Final_ClosedLoop": {
+      "baseline_version": "V0_Baseline",
+      "target_version": "Final_ClosedLoop",
+      "absolute_delta_rsr": 81.25,
+      "relative_delta_rsr": 433.33,
+      "latency_delta_seconds": 0.0,
+      "cost_delta_usd": 0.64,
+      "compilation_delta": 0.0,
+      "exploit_neutralization_delta": 81.25,
+      "invariant_delta": 12.5
+    }
+  }
+}

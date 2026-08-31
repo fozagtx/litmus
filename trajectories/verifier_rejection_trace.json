@@ -1,0 +1,30 @@
+{
+  "trajectory_id": "traj_verifier_rejection_solvency",
+  "case_id": "case_10",
+  "title": "Verifier Rejection: Flawed Patch Violating Solvency Invariant",
+  "version": "Layer_B_Verifier",
+  "task": {
+    "contract": "StakingPool",
+    "vulnerability": "Fee on transfer token accounting mismatch"
+  },
+  "steps": [
+    {
+      "step_index": 1,
+      "agent": "ExecutorAgent",
+      "action": "Draft candidate patch that simply wrapped transfer in require(success)",
+      "candidate_patch": "Patch missed balanceBefore/balanceAfter calculation."
+    },
+    {
+      "step_index": 2,
+      "agent": "VerifierAgent",
+      "action": "Run independent invariant checker and exploit simulation",
+      "verification_report": {
+        "status": "FAIL",
+        "failure_classification": "exploit_not_neutralized",
+        "actionable_feedback": "Attacker deposit of 100 deflationary tokens credited 100 instead of 90 actual received tokens, causing insolvency.",
+        "suggested_fix_strategy": "Compute actual token balance delta before and after transferFrom."
+      },
+      "outcome": "REJECTED (Prevented deploying broken patch)"
+    }
+  ]
+}

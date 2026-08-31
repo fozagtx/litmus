@@ -1,0 +1,26 @@
+{
+  "trajectory_id": "traj_v0_access_success",
+  "case_id": "case_03",
+  "title": "Baseline Success: Simple Access Control Modifier",
+  "version": "V0_Baseline",
+  "task": {
+    "contract": "Treasury",
+    "vulnerability": "Missing onlyOwner on withdrawAdmin"
+  },
+  "steps": [
+    {
+      "step_index": 1,
+      "agent": "BaselineSingleTurnLLM",
+      "action": "Generate patch adding onlyOwner modifier",
+      "output": "Contract updated with modifier onlyOwner { require(msg.sender == owner); _; }",
+      "state_change": "Patch produced."
+    },
+    {
+      "step_index": 2,
+      "agent": "BenchmarkEvaluator",
+      "action": "Run access control test and owner regression",
+      "result": "Exploit neutralized. Owner regression passed.",
+      "outcome": "SUCCESS (RSR = 1.0)"
+    }
+  ]
+}

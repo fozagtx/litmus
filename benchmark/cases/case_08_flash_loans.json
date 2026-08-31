@@ -1,0 +1,31 @@
+{
+  "case_id": "case_08",
+  "title": "Flash Loan Callback Reentrancy",
+  "category": "Flash Loans",
+  "difficulty": "Difficult",
+  "vulnerability_type": "REENTRANCY",
+  "vulnerable_code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ninterface IFlashBorrower {\n    function onFlashLoan(uint256 amount, uint256 fee) external returns (bytes32);\n}\n\ncontract FlashLender {\n    uint256 public poolBalance;\n    uint256 public constant FEE_BPS = 10; // 0.1%\n\n    function deposit() external payable {\n        poolBalance += msg.value;\n    }\n\n    function flashLoan(address receiver, uint256 amount) external {\n        require(amount <= poolBalance, \"Exceeds pool balance\");\n        uint256 fee = (amount * FEE_BPS) / 10000;\n        uint256 balanceBefore = poolBalance;\n\n        // Callback before balance check\n        (bool success, ) = receiver.call{value: amount}(\"\");\n        require(success, \"Transfer failed\");\n\n        bytes32 callbackResult = IFlashBorrower(receiver).onFlashLoan(amount, fee);\n        require(callbackResult == keccak256(\"IFlashBorrower.onFlashLoan\"), \"Invalid callback\");\n\n        require(address(this).balance >= balanceBefore + fee, \"Flash loan not repaid\");\n        poolBalance = address(this).balance;\n    }\n}",
+  "vulnerability_description": "flashLoan lacks nonReentrant guard, allowing the borrower inside onFlashLoan() callback to initiate nested flash loans or drain operations before repayment validation.",
+  "exploit_poc": "Borrower re-enters flashLoan or withdraw during callback to manipulate repayment checks and extract pool assets.",
+  "invariants": [
+    "Non-reentrancy on loan execution",
+    "Pool balance monotonically increases by fee on each loan"
+  ],
+  "regression_tests": [
+    {
+      "name": "Standard Flash Loan Execution",
+      "description": "Honest borrower takes and repays flash loan",
+      "function_called": "flashLoan",
+      "caller": "0xBorrower",
+      "args": {
+        "amount": 100
+      },
+      "expected_success": true
+    }
+  ],
+  "constraints": [
+    "Add nonReentrant guard or explicit reentrancy lock"
+  ],
+  "baseline_failure_mode": "Baseline creates lock that never gets cleared or removes the callback functionality entirely.",
+  "gold_patch_reference": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\ninterface IFlashBorrower {\n    function onFlashLoan(uint256 amount, uint256 fee) external returns (bytes32);\n}\n\ncontract FlashLender {\n    uint256 public poolBalance;\n    uint256 public constant FEE_BPS = 10;\n    bool private _locked;\n\n    modifier nonReentrant() {\n        require(!_locked, \"Reentrant call\");\n        _locked = true;\n        _;\n        _locked = false;\n    }\n\n    function deposit() external payable {\n        poolBalance += msg.value;\n    }\n\n    function flashLoan(address receiver, uint256 amount) external nonReentrant {\n        require(amount <= poolBalance, \"Exceeds pool balance\");\n        uint256 fee = (amount * FEE_BPS) / 10000;\n        uint256 balanceBefore = poolBalance;\n\n        (bool success, ) = receiver.call{value: amount}(\"\");\n        require(success, \"Transfer failed\");\n\n        bytes32 callbackResult = IFlashBorrower(receiver).onFlashLoan(amount, fee);\n        require(callbackResult == keccak256(\"IFlashBorrower.onFlashLoan\"), \"Invalid callback\");\n\n        require(address(this).balance >= balanceBefore + fee, \"Flash loan not repaid\");\n        poolBalance = address(this).balance;\n    }\n}"
+}
