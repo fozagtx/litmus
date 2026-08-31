@@ -1,4 +1,3 @@
-```markdown
 # Litmus
 
 **Autonomous Smart Contract Incident Remediation & Invariant Verification**
