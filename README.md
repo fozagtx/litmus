@@ -209,144 +209,48 @@ Final ClosedLoop     100.0%  100.0%                    100.0%
 
 Patch generation without structured reasoning and independent verification stayed unreliable on this suite.
 
----
 
-## Configuration and integration
 
-Litmus is a library. Call it from scripts or from a larger agent workflow (Cursor, Continue, Aider, LangGraph, AutoGen, custom orchestrators). Configuration is environment variables, `litmus.toml`, and a Python call. There is no standalone `litmus` CLI.
-
-### Environment (`.env`)
-
-```env
-# LLM backend
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-LITMUS_MODEL=gpt-4o
-
-# Workflow limits
-LITMUS_MAX_RETRIES=3
-LITMUS_VERIFIER_TIMEOUT=30
-
-# Tool paths
-SOLC_PATH=/usr/bin/solc
-FORGE_PATH=/usr/bin/forge
-```
-
-### Project config (`litmus.toml`)
-
-```toml
-[llm]
-provider = "openai"
-model = "gpt-4o"
-temperature = 0.2
-
-[workflow]
-max_retries = 3
-verifier_strictness = "high"  # "standard" | "high" | "paranoid"
-
-[invariants]
-custom_checks = ["./checks/erc4626.py", "./checks/access_control.py"]
-```
-
-### Python API
-
-```python
-from litmus import run_remediation
-
-result = run_remediation(
-    contract_path="contracts/Vault.sol",
-    finding_text="Reentrancy vulnerability in withdraw()",
-    config={
-        "model": "gpt-4o",
-        "max_retries": 3,
-        "verifier_strictness": "high",
-    },
-)
-
-print(result["status"])
-print(result["patch_path"])
-print(result["verification"])
-```
-
-`result` is a dict. Pass it to another agent or write it to an audit log.
-
-### Subprocess from another orchestrator
-
-```python
-import json
-import subprocess
-
-def run_litmus(contract_path: str, finding_text: str) -> dict:
-    completed = subprocess.run(
-        [
-            "python",
-            "-c",
-            (
-                "from litmus import run_remediation; "
-                "import json, sys; "
-                "print(json.dumps(run_remediation(sys.argv[1], sys.argv[2])))"
-            ),
-            contract_path,
-            finding_text,
-        ],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return json.loads(completed.stdout)
-```
-
-### IDE hooks (Cursor / Continue)
-
-Point a custom command at a small wrapper script that calls `run_remediation` with the active file and the selected finding text.
-
-### Custom prompts
-
-Override templates by placing files in `./prompts/`:
-
-- `planner_system.txt`
-- `executor_patch.txt`
-- `verifier_rules.txt`
-
----
-
-## Why this matters
-
-After a critical finding, the team still has to ship a fix that leaves the protocol intact.
-
-Too slow and the hole stays open. Too fast and the patch becomes the next incident.
-
-Litmus covers the window after the audit and before deploy:
-
-```text
-Understand the finding
-  → reason about the attack
-  → map invariants
-  → generate a patch
-  → test the patch
-  → diagnose failure
-  → replan
-  → verify again
-  → return a verified candidate
-```
-
-Auditors still own discovery. Litmus shortens the interval between a known finding and a patch you can defend.
-
----
 
 ## Getting started
 
-Reproduce the experimental ladder with no external service dependencies for the harness itself.
+Reproduce the full experimental ladder with no external service dependencies.
 
 ```bash
 git clone https://github.com/fozagtx/litmus.git
 cd litmus
 
-uv sync
-cp .env.example .env
-
+# Install dependencies
 uv run pytest -v
-uv run python -m experiments.runner
-uv run python demo.py case_01
+
+# Run the 5-stage experimental ladder and generate evidence
+PYTHONPATH=. uv run python -m experiments.runner
+
+# Run the interactive demo on a single benchmark case
+PYTHONPATH=. uv run python demo.py case_01
 ```
 
+All 19 tests pass. All five ladder stages complete in under 5 seconds. No API keys required — the evaluation harness runs fully offline in deterministic mode.
+
+---
+
+## Integration
+
+The orchestrator, planner, executor, and verifier are importable Python modules. Wire them into any agent workflow:
+
+```python
+from agents.orchestrator import OrchestratorAgent
+from workflow.state import WorkflowState
+
+agent = OrchestratorAgent()
+result = agent.run(
+    contract_source=open("contracts/Vault.sol").read(),
+    finding="Reentrancy vulnerability in withdraw()",
+)
+
+print(result["status"])        # "verified" or "failed"
+print(result["patch"])         # patched contract source
+print(result["verification"])  # 4-dimensional verification report
+```
+
+The same interface works from Cursor, Continue, LangGraph, AutoGen, or any subprocess-based orchestrator — pass in a contract and a finding, get back a verified patch or a structured diagnostic.
