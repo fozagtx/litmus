@@ -1,9 +1,3 @@
-You're absolutely right. I haven't added that yet.
-
-Here is the **fully updated README**, now with a dedicated **"Configuration & Agentic Tooling Integration"** section. This explains exactly how to configure Litmus to work with agentic coding tools (like Cursor, Continue, Aider, or custom multi-agent frameworks) and how to customize its runtime behavior.
-
----
-
 ```markdown
 # Litmus
 
