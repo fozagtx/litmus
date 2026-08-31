@@ -1,266 +1,238 @@
 # Litmus
 
-**Autonomous Smart Contract Incident Remediation & Invariant Verification**
+**Autonomous smart contract incident remediation and invariant verification.**
 
-[![Evaluation](https://img.shields.io/badge/Micro1%20Evaluation-Passed%20\(16%2F16\)-brightgreen)](#measured-results)
-[![Primary Metric](https://img.shields.io/badge/Primary%20Metric%20\(RSR\)-100.0%25%20\(%2B81.25%25%20vs%20Baseline\)-blue)](#measured-results)
+[![Evaluation](https://img.shields.io/badge/Micro1%20Evaluation-Passed%20(16%2F16)-brightgreen)](#measured-results)
+[![Primary Metric](https://img.shields.io/badge/Primary%20Metric%20(RSR)-100.0%25%20(+81.25%25%20vs%20Baseline)-blue)](#measured-results)
 [![Architecture](https://img.shields.io/badge/Architecture-3--Layer%20Closed--Loop-orange)](#system-architecture)
 
----
-
-## The Problem
-
-Smart contract security has a painful gap.
-
-An audit can identify a critical vulnerability. A security researcher can produce a proof of concept. An engineering team can understand exactly what needs to change.
-
-But then comes the dangerous part:
-
-**Someone has to actually fix the code—and prove that the fix works—before an attacker finds the same flaw.**
-
-And that remediation process is rarely a one-line change.
-
-The first five months of 2026 proved this is not a theoretical concern. Attackers have been systematically dismantling protocols through a diverse set of vectors, from integer overflows to private key leaks.
+Litmus takes an audit finding and returns a verified patch: compiled, exploit-killed, invariants intact, legitimate flows still working.
 
 ---
+The first five months of 2026 made the cost of delay visible. In January, attackers drained over $75M across multiple protocols, including a $26M integer overflow on Truebit and a $40M private key compromise on Step Finance. February added about $23.5M from oracle manipulation and bridge compromises, including YieldBlox and IoTeX. March added about $52M across 20+ incidents: Solv Protocol ($2.7M, double-mint), Venus Protocol ($3.7M, flash loan), dTRINITY dLEND (logic error), and Resolv Labs (private key, 80M unbacked mint). By the end of Q1, losses reached $168.6M across 34 protocols. May accelerated again: $68.3M across 60 incidents, including TrustedVolumes ($6.7M, proxy bug) and Verus Bridge ($11.58M, validation gap).
 
-## 2026 Incident Timeline
+An audit can name a critical vulnerability , A researcher can ship a proof of concept , The team can agree on what must change. But someone has to patch the contract and prove the patch works before an attacker uses the same finding.
 
-Below is a compiled series of major DeFi exploits from January to May 2026, demonstrating the breadth and frequency of attacks that demand rapid, verified remediation.
-
-### January 2026
-A brutal start to the year, with over **$75 million** lost across multiple protocols.
-
-- **Truebit** — **$26M** lost due to an **integer overflow** in a 2021 contract.
-- **Step Finance** — **$40M** stolen via a **private key compromise** (largest of the quarter).
-- **YO Protocol** — **$3.7M** drained from a slippage-related misconfiguration.
-- **MakinaFi** — **$4.2M** exploited from the DUSD/USDC Curve pool.
-- **Aperture Finance & 0xswapnet** — Hit by a series of linked attacks.
-
-### February 2026
-Attackers shifted focus to cross-chain infrastructure and oracle manipulation, totaling **~$23.5M**.
-
-- **YieldBlox DAO** — **$10M+** lost to **oracle manipulation** (USTRY price artificially inflated 100x).
-- **IoTeX (ioTube)** — **$4.4M** drained via another **private key compromise** on Ethereum.
-- **CrossCurve** — **$2.8M** stolen through validation bugs that spoofed bridge messages.
-
-### March 2026
-A surge in sophisticated flash-loan and logic flaws resulted in **~$52M** in losses across 20+ incidents.
-
-- **Solv Protocol** — **$2.7M** lost to a **double-mint vulnerability** in BRO vaults.
-- **Venus Protocol** — **$3.7M** exploited via a complex **flash-loan + price manipulation** attack.
-- **dTRINITY dLEND** — Hit by a flash-loan abuse combined with faulty repayment accounting.
-- **Resolv Labs** — Private key exploit allowed the minting of 80M unbacked stablecoins.
-
-### May 2026
-The pace accelerated again, with **$68.3 million** lost across **60 incidents**.
-
-- **TrustedVolumes** — **$6.7M** exploited via a custom RFQ swap proxy bug.
-- **Verus Bridge** — **$11.58M** drained due to a validation gap that failed to verify cross-chain asset backing.
-
-### Summary of Losses
-
-| Period      | Total Losses | Notable Attack Vectors                           |
-| ----------- | ------------ | ------------------------------------------------ |
-| **January** | ~$75M+       | Integer overflow, Private key, Slippage          |
-| **February**| ~$23.5M      | Oracle manipulation, Private key, Bridge bugs    |
-| **March**   | ~$52M        | Flash loans, Double-mint, Logic flaws            |
-| **May**     | ~$68.3M      | RFQ proxy bugs, Bridge validation gaps           |
-| **Q1 Total**| **$168.6M**  | (34 distinct protocols affected)                 |
-
----
-
-## The Remediation Gap
-
-These incidents illustrate a broader problem: **smart contract security does not end when an auditor identifies a vulnerability.**
-
-The team still has to move from:
+That work spans more than a one-line edit.
+After the finding, the remaining path is:
 
 ```text
-Audit Finding
-     ↓
-Understand the Root Cause
-     ↓
-Design a Safe Patch
-     ↓
-Implement the Patch
-     ↓
-Compile
-     ↓
-Reproduce the Exploit
-     ↓
-Prove the Invariants Still Hold
-     ↓
-Verify No Functional Regressions
-     ↓
-Deploy
+Audit finding
+  → root cause
+  → safe patch design
+  → implementation
+  → compile
+  → reproduce the exploit
+  → prove invariants still hold
+  → check functional regressions
+  → deploy
 ```
 
-Every step takes engineering time. And teams are under pressure.
-
-A patch that is too slow leaves a vulnerability exposed.  
-A patch that is too aggressive can break withdrawals, invalidate accounting assumptions, violate ERC standards, or introduce an entirely new vulnerability.
-
-So the real bottleneck is not simply **finding vulnerabilities**.
-
-It is:
-
-> **Closing the gap between discovering a vulnerability and confidently deploying a verified fix.**
-
-Litmus is built to close that gap.
+A slow patch leaves the hole open. An aggressive patch can break withdrawals, accounting, ERC assumptions, or introduce a new vulnerability. Litmus targets the interval between a known finding and a verified fix.
 
 ---
 
-## What Litmus Does
+## What Litmus does
 
-Litmus turns smart contract remediation from a manual, single-pass coding task into a **closed-loop security workflow**.
-
-Instead of asking an LLM:
+Litmus runs remediation as a closed loop.
 
 ```text
-"Here is the vulnerable contract. Fix it."
+Audit finding
+  → root-cause analysis
+  → invariant mapping
+  → patch generation
+  → compilation
+  → exploit reproduction
+  → invariant verification
+      PASS → verified patch
+      FAIL → diagnostic feedback → replan → patch again
 ```
 
-Litmus creates a remediation loop:
-
-```text
-Audit Finding
-      ↓
-Root-Cause Analysis
-      ↓
-Invariant Mapping
-      ↓
-Patch Generation
-      ↓
-Compilation
-      ↓
-Exploit Reproduction
-      ↓
-Invariant Verification
-      ↓
-PASS ───────────────→ Verified Patch
-      │
-      └── FAIL
-            ↓
-      Diagnostic Feedback
-            ↓
-          Replan
-            ↓
-        Patch Again
-```
-
-The agent does not stop when it generates code.
-
-**It stops when the code survives independent verification.**
+The run ends when the candidate survives independent verification.
 
 ---
 
-## Why Existing LLM-Based Remediation Falls Short
+## Why single-turn LLM remediation fails
 
-The simplest approach is a single-turn prompt:
-
-```text
-[Vulnerable Contract + Audit Finding]
-              ↓
-        Single-Turn LLM
-              ↓
-        Proposed Patch
-```
-
-This looks efficient. It isn't.
-
-Across our standardized 16-case security benchmark, this baseline achieved only **18.8% Remediation Success Rate (3/16 cases)**.
-
-The problem is not primarily syntax. The problem is that smart contract vulnerabilities are tied to **state, accounting, permissions, and protocol invariants**.
-
-- **Reentrancy**: A model may move state updates or add a reentrancy guard without understanding cross-function execution paths.
-- **Vault Inflation**: A model may add restrictions that appear to stop the exploit while breaking ERC4626 share-price and proportionality invariants.
-- **Access Control**: A model may remove or modify a function rather than preserving the contract's public interface while fixing authorization.
-- **Accounting**: A model may patch a transfer path without correctly accounting for balance differentials, leaving the protocol insolvent.
-
-A patch can therefore:
+The naive path is one prompt:
 
 ```text
-Compile successfully
-       ↓
-Look reasonable
-       ↓
-Pass superficial checks
-       ↓
-Still be exploitable
+[Vulnerable contract + audit finding]
+  → single-turn LLM
+  → proposed patch
 ```
 
-That is the problem Litmus targets.
+On a frozen 16-case security benchmark, that baseline reached **18.8% Remediation Success Rate (3/16)**.
+
+The usual failure is semantic. Smart contract bugs sit in state, accounting, permissions, and protocol invariants.
+
+- **Reentrancy.** A model may move a state update or add a guard and miss cross-function paths.
+- **Vault inflation.** A model may block the exploit and still break ERC-4626 share-price and proportionality invariants.
+- **Access control.** A model may delete or reshape a function instead of keeping the public interface and fixing authorization.
+- **Accounting.** A model may patch one transfer path and leave balance differentials that insolvent the protocol.
+
+A patch can compile, look plausible, pass a shallow check, and remain exploitable.
 
 ---
 
-## System Architecture
+## System architecture
 
-Litmus introduces three isolated layers.
+Three isolated layers.
 
-### Layer A — Runtime Remediation Agent
+### Layer A: runtime remediation agent
 
-The Runtime Agent is responsible for understanding the vulnerability and producing candidate patches.
+Produces candidate patches.
 
-- **Orchestrator**: Controls the remediation workflow, state transitions, retry budget, and trajectory logging.
-- **Planner**: Decomposes the vulnerability before modifying code. It identifies root cause, attack mechanism, affected state transitions, relevant protocol invariants, and required patch constraints.
-- **Executor**: Uses specialized security tools to inspect and modify the contract, including `ast_parser`, `static_analyzer`, and `patch_tool`.
-- **Explicit Workflow State**: The agent maintains execution context, previous observations, and step history instead of treating every attempt as an isolated prompt.
+- **Orchestrator.** Owns workflow, state transitions, retry budget, and trajectory logs.
+- **Planner.** Decomposes the finding before any edit: root cause, attack mechanism, affected state transitions, relevant invariants, patch constraints.
+- **Executor.** Inspects and edits the contract with `ast_parser`, `static_analyzer`, and `patch_tool`.
+- **Explicit workflow state.** Keeps execution context, observations, and step history across attempts.
 
-### Layer B — Independent Verification
+### Layer B: independent verification
 
-The verifier is **isolated from the generation path**. The same process that proposes a patch should not be the only process deciding whether that patch is correct.
+The verifier sits outside the generation path. A process that wrote the patch does not also declare it correct.
 
-The verifier evaluates the candidate across four dimensions:
+Four checks:
 
-1. **Compilation & Syntax**: Does the patched contract actually compile?
-2. **Exploit Neutralization**: Can the original exploit proof of concept still succeed?
-3. **Invariant Preservation**: Does the patch preserve the mathematical and protocol properties the contract depends on?
-4. **Functional Regression**: Does the fix break legitimate functionality such as normal deposits, withdrawals, transfers, or other expected contract behavior?
+1. **Compilation and syntax.** Does the patched contract compile?
+2. **Exploit neutralization.** Does the original PoC still succeed?
+3. **Invariant preservation.** Do the mathematical and protocol properties still hold?
+4. **Functional regression.** Do legitimate deposits, withdrawals, transfers, and other expected paths still work?
 
-The verifier produces structured diagnostics such as:
+Structured diagnostics include `exploit_not_neutralized`, `invariant_violated`, `syntax_error`, and `functional_regression`. Failed candidates stay undeployed. Diagnostics go back to the agent.
 
-```text
-exploit_not_neutralized
-invariant_violated
-syntax_error
-functional_regression
-```
+### Layer C: evaluation harness
 
-A failed candidate is not deployed. Its diagnostic feedback is returned to the remediation agent.
-
-### Layer C — Evaluation Harness
-
-The evaluation layer is completely separated from the runtime agent. It evaluates each architecture against a frozen **16-case security benchmark**, allowing us to measure exactly which architectural intervention improves remediation performance.
+Separated from the runtime agent. Scores each architecture against the same frozen 16-case benchmark so each intervention can be measured.
 
 ---
 
-## Configuration & Agentic Tooling Integration
+## Closed-loop flow
 
-Litmus is built as a standalone agentic workflow, but it is designed to be **dropped into larger agentic ecosystems** (Cursor, Continue, Aider, LangGraph, AutoGen, or custom multi-agent systems).
+```text
+┌───────────────────────┐
+│ AUDIT FINDING         │
+└───────────┬───────────┘
+            ▼
+┌───────────────────────┐
+│ ORCHESTRATOR          │
+└───────────┬───────────┘
+            ▼
+┌───────────────────────┐
+│ PLANNER               │
+│ root cause            │
+│ attack path           │
+│ invariants            │
+└───────────┬───────────┘
+            ▼
+┌───────────────────────┐
+│ EXECUTOR              │
+│ AST parser            │
+│ static analyzer       │
+│ patch tool            │
+└───────────┬───────────┘
+            ▼
+┌─────────────┐
+│ PATCH       │
+└──────┬──────┘
+       ▼
+┌────────────────────────────────┐
+│ INDEPENDENT VERIFIER           │
+│ compilation · exploit PoC      │
+│ invariants · functional checks │
+└───────────────┬────────────────┘
+       ┌────────┴────────┐
+     PASS              FAIL
+       ▼                 ▼
+┌──────────────┐  ┌──────────────┐
+│ VERIFIED     │  │ DIAGNOSTIC   │
+│ PATCH        │  │ FEEDBACK     │
+└──────────────┘  └──────┬───────┘
+                         ▼
+                  ┌──────────┐
+                  │ REPLAN   │
+                  └────┬─────┘
+                       └── retry
+```
 
-### Environment Configuration
+Failed attempts feed diagnostics back into the planner. The next patch is a response to those diagnostics.
 
-Configure the runtime behavior via a `.env` file or system environment variables:
+---
+
+## Experimental results
+
+One variable changed at a time on the same 16-case benchmark.
+
+| Version | Intervention | RSR |
+| --- | --- | ---: |
+| V0 Baseline | Single-turn direct prompt | **18.8%** |
+| V1 Tools only | AST parser + static analyzer | **31.2%** |
+| V2 Planner + state | Multi-step planner + explicit state | **93.8%** |
+| V3 Verifier gate | Independent verification | **100.0%** |
+| Final closed loop | Verification + replanning | **100.0%** |
+
+```text
+18.8% → 31.2% → 93.8% → 100.0%
+```
+
+Final system: **100% RSR (16/16)** against **18.8% (3/16)** baseline. Absolute gain: **81.25 percentage points**. Relative gain: **433.3%**.
+
+Ladder:
+
+- Tools alone: 18.8% → 31.2%.
+- Planning and explicit state: → 93.8%. Largest jump.
+- Independent verifier: → 100%.
+- Closed-loop replan: verifier feedback drives the next attempt.
+
+### Measured results
+
+All metrics from the frozen 16-case suite and the deterministic Layer C scorer.
+
+```text
+=============================================================================================
+Micro1 Evaluation: Experimental Ladder vs Baseline
+=============================================================================================
+Version              RSR     Exploit Neutralization    Invariants
+---------------------------------------------------------------------------------------------
+V0 Baseline          18.8%   18.8%                     87.5%
+V1 Tools Only        31.2%   31.2%                     93.8%
+V2 Planner+State     93.8%   93.8%                     100.0%
+V3 Verifier          100.0%  100.0%                    100.0%
+Final ClosedLoop     100.0%  100.0%                    100.0%
+=============================================================================================
+```
+
+- **Remediation success rate:** 18.8% → 100.0%
+- **Exploit neutralization:** 18.8% → 100.0%
+- **Invariant preservation:** 100.0% in the final evaluation, with no regressions on the tested standard deposit/withdraw flows
+- **Deterministic evaluation latency:** < 0.1 seconds
+
+Patch generation without structured reasoning and independent verification stayed unreliable on this suite.
+
+---
+
+## Configuration and integration
+
+Litmus is a library. Call it from scripts or from a larger agent workflow (Cursor, Continue, Aider, LangGraph, AutoGen, custom orchestrators). Configuration is environment variables, `litmus.toml`, and a Python call. There is no standalone `litmus` CLI.
+
+### Environment (`.env`)
 
 ```env
-# LLM Backend
+# LLM backend
 OPENAI_API_KEY=sk-...
 ANTHROPIC_API_KEY=sk-ant-...
-LITMUS_MODEL=gpt-4o                     # or claude-3-5-sonnet, deepseek-coder
+LITMUS_MODEL=gpt-4o
 
-# Workflow Limits
-LITMUS_MAX_RETRIES=3                    # Max replan cycles per patch
-LITMUS_VERIFIER_TIMEOUT=30              # Seconds per verification step
+# Workflow limits
+LITMUS_MAX_RETRIES=3
+LITMUS_VERIFIER_TIMEOUT=30
 
-# Tool Paths
+# Tool paths
 SOLC_PATH=/usr/bin/solc
 FORGE_PATH=/usr/bin/forge
 ```
 
-### Config File (`litmus.toml`)
-
-For persistent project-level configuration:
+### Project config (`litmus.toml`)
 
 ```toml
 [llm]
@@ -276,311 +248,105 @@ verifier_strictness = "high"  # "standard" | "high" | "paranoid"
 custom_checks = ["./checks/erc4626.py", "./checks/access_control.py"]
 ```
 
-### CLI Integration with Agentic Coding Tools
-
-Litmus exposes a clean CLI that any external agent (or human developer) can invoke:
-
-```bash
-# Repair a single contract
-litmus repair --contract ./contracts/Vault.sol --finding ./audits/finding-001.txt
-
-# Output JSON for machine parsing
-litmus repair --contract Vault.sol --finding bug.txt --output json > result.json
-```
-
-**Example JSON output** (for agent-to-agent communication):
-
-```json
-{
-  "status": "verified",
-  "patch_path": "./patches/Vault_patched.sol",
-  "verification": {
-    "compiles": true,
-    "exploit_neutralized": true,
-    "invariants_held": ["shares_ratio", "total_supply"],
-    "regressions": []
-  },
-  "attempts": 2
-}
-```
-
-### Hooking Into Cursor / Continue
-
-To use Litmus directly from your IDE agent:
-
-1. Add a custom command to your `.cursorrules` or `continue/config.json`:
-
-```json
-{
-  "commands": [
-    {
-      "name": "litmus-fix",
-      "command": "litmus repair --contract ${file} --finding ${selectedText} --output json",
-      "description": "Run Litmus autonomous remediation on selected finding"
-    }
-  ]
-}
-```
-
-2. Your IDE agent can now trigger Litmus on any selected audit finding and receive the verified patch.
-
-### Integrating with Aider / Multi-Agent Systems
-
-Litmus can be invoked as a **subprocess tool** from larger orchestrators:
+### Python API
 
 ```python
-import subprocess, json
+from litmus import run_remediation
 
-def run_litmus(contract_path, finding_text):
-    result = subprocess.run(
-        ["litmus", "repair", "--contract", contract_path,
-         "--finding", finding_text, "--output", "json"],
-        capture_output=True, text=True
+result = run_remediation(
+    contract_path="contracts/Vault.sol",
+    finding_text="Reentrancy vulnerability in withdraw()",
+    config={
+        "model": "gpt-4o",
+        "max_retries": 3,
+        "verifier_strictness": "high",
+    },
+)
+
+print(result["status"])
+print(result["patch_path"])
+print(result["verification"])
+```
+
+`result` is a dict. Pass it to another agent or write it to an audit log.
+
+### Subprocess from another orchestrator
+
+```python
+import json
+import subprocess
+
+def run_litmus(contract_path: str, finding_text: str) -> dict:
+    completed = subprocess.run(
+        [
+            "python",
+            "-c",
+            (
+                "from litmus import run_remediation; "
+                "import json, sys; "
+                "print(json.dumps(run_remediation(sys.argv[1], sys.argv[2])))"
+            ),
+            contract_path,
+            finding_text,
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
     )
-    return json.loads(result.stdout)
+    return json.loads(completed.stdout)
 ```
 
-### Custom Planner & Executor Prompts
+### IDE hooks (Cursor / Continue)
 
-Advanced users can override the internal prompt templates by placing custom files in `./prompts/`:
+Point a custom command at a small wrapper script that calls `run_remediation` with the active file and the selected finding text.
 
-- `planner_system.txt` – Root cause and invariant mapping guidance.
-- `executor_patch.txt` – Code generation instruction template.
-- `verifier_rules.txt` – Additional invariant rules to check.
+### Custom prompts
 
----
+Override templates by placing files in `./prompts/`:
 
-## The Closed-Loop Architecture
-
-```text
-                         ┌───────────────────────┐
-                         │    AUDIT FINDING      │
-                         └───────────┬───────────┘
-                                     │
-                                     ▼
-                         ┌───────────────────────┐
-                         │      ORCHESTRATOR     │
-                         └───────────┬───────────┘
-                                     │
-                                     ▼
-                         ┌───────────────────────┐
-                         │   PLANNER AGENT       │
-                         │                       │
-                         │ Root Cause            │
-                         │ Attack Path           │
-                         │ Invariants            │
-                         └───────────┬───────────┘
-                                     │
-                                     ▼
-                         ┌───────────────────────┐
-                         │      EXECUTOR         │
-                         │                       │
-                         │ AST Parser             │
-                         │ Static Analyzer        │
-                         │ Patch Tool             │
-                         └───────────┬───────────┘
-                                     │
-                                     ▼
-                              ┌─────────────┐
-                              │   PATCH     │
-                              └──────┬──────┘
-                                     │
-                                     ▼
-                    ┌────────────────────────────────┐
-                    │     INDEPENDENT VERIFIER       │
-                    │                                │
-                    │  Compilation                   │
-                    │  Exploit PoC                   │
-                    │  Invariants                    │
-                    │  Functional Regression         │
-                    └───────────────┬────────────────┘
-                                    │
-                         ┌──────────┴──────────┐
-                         │                     │
-                       PASS                  FAIL
-                         │                     │
-                         ▼                     ▼
-                 ┌──────────────┐       ┌──────────────┐
-                 │ VERIFIED     │       │ DIAGNOSTIC   │
-                 │ PATCH        │       │ FEEDBACK     │
-                 └──────────────┘       └──────┬───────┘
-                                               │
-                                               ▼
-                                          ┌──────────┐
-                                          │ REPLAN   │
-                                          └────┬─────┘
-                                               │
-                                               └──────→ Retry
-```
-
-The important difference is simple:
-
-> **Litmus does not ask an agent to be right on the first attempt. It gives the agent a mechanism for discovering that it is wrong and correcting itself.**
+- `planner_system.txt`
+- `executor_patch.txt`
+- `verifier_rules.txt`
 
 ---
 
-## Controlled Experimental Results
+## Why this matters
 
-We tested the architecture using a controlled five-stage experimental ladder, changing one architectural variable at a time.
+After a critical finding, the team still has to ship a fix that leaves the protocol intact.
 
-| Version                  | Intervention                        |        RSR |
-| ------------------------ | ----------------------------------- | ---------: |
-| **V0 — Baseline**        | Single-turn direct prompt           |  **18.8%** |
-| **V1 — Tools Only**      | AST Parser + Static Analyzer        |  **31.2%** |
-| **V2 — Planner + State** | Multi-Step Planner + Explicit State |  **93.8%** |
-| **V3 — Verifier Gate**   | Independent Verification            | **100.0%** |
-| **Final — Closed Loop**  | Verification + Replanning           | **100.0%** |
+Too slow and the hole stays open. Too fast and the patch becomes the next incident.
 
-The largest jump came from adding structured planning and workflow state:
-
-```text
-18.8%
-  ↓
-31.2%
-  ↓
-93.8%
-  ↓
-100.0%
-```
-
-The final system achieved **100% Remediation Success Rate (16/16)** compared with **18.8% (3/16)** for the single-turn baseline.  
-That is an **81.25 percentage-point absolute improvement** and a **433.3% relative improvement** over baseline.
-
----
-
-## What the Results Tell Us
-
-The experiment suggests that the core problem is not simply that LLMs cannot write security patches. They can.
-
-The problem is that **patch generation without structured reasoning and independent verification is unreliable**.
-
-The experimental ladder makes this visible:
-
-- **Tools Alone**: Adding static tools improved performance from **18.8% → 31.2%**. Useful, but insufficient.
-- **Planning + State**: Adding structured planning and explicit workflow state increased performance to **93.8%**. This was the largest architectural improvement.
-- **Independent Verification**: Adding the verifier gate pushed the system to **100%**.
-- **Closed-Loop Replanning**: The final architecture retains the verifier feedback and uses it to drive another remediation attempt rather than simply rejecting the patch.
-
----
-
-## Measured Results
-
-All metrics are computed on the frozen 16-case benchmark suite using the deterministic Layer C evaluation scorer.
-
-```text
-=============================================================================================
-Micro1 Evaluation: Experimental Ladder vs Baseline
-=============================================================================================
-Version           RSR       Exploit Neutralization    Invariants
----------------------------------------------------------------------------------------------
-V0 Baseline       18.8%            18.8%                87.5%
-V1 Tools Only     31.2%            31.2%                93.8%
-V2 Planner+State  93.8%            93.8%               100.0%
-V3 Verifier       100.0%           100.0%              100.0%
-Final ClosedLoop  100.0%           100.0%              100.0%
-=============================================================================================
-```
-
-### Remediation Success Rate
-
-**18.8% → 100.0%**
-
-### Exploit Neutralization
-
-**18.8% → 100.0%**
-
-### Invariant Preservation
-
-**100.0%** in the final evaluation, with zero regressions on the tested standard deposit/withdraw flows.
-
-### Deterministic Evaluation Latency
-
-**< 0.1 seconds**
-
----
-
-## Why This Matters
-
-Smart contract security has traditionally focused heavily on **finding vulnerabilities**. But finding the bug is only half the problem.
-
-Once a critical finding exists, engineering teams still have to make a difficult decision:
-
-> **How quickly can we fix this without breaking the protocol?**
-
-Move too slowly, and the vulnerability remains exposed.  
-Move too quickly, and the patch itself can create a new failure mode.
-
-Litmus attacks this remediation bottleneck directly. It provides a system that can:
+Litmus covers the window after the audit and before deploy:
 
 ```text
 Understand the finding
-        ↓
-Reason about the attack
-        ↓
-Map the invariants
-        ↓
-Generate a patch
-        ↓
-Test the patch
-        ↓
-Diagnose failure
-        ↓
-Replan
-        ↓
-Verify again
-        ↓
-Return a verified candidate
+  → reason about the attack
+  → map invariants
+  → generate a patch
+  → test the patch
+  → diagnose failure
+  → replan
+  → verify again
+  → return a verified candidate
 ```
 
-The goal is not to replace security auditors. The goal is to make the period **after the audit and before deployment** dramatically safer and faster.
+Auditors still own discovery. Litmus shortens the interval between a known finding and a patch you can defend.
 
 ---
 
-## Getting Started
+## Getting started
 
-Reproduce the full experimental ladder in under 5 seconds with zero external dependencies.
+Reproduce the experimental ladder with no external service dependencies for the harness itself.
 
 ```bash
-# Clone repository
-git clone https://github.com/litmus/litmus.git
+git clone https://github.com/fozagtx/litmus.git
 cd litmus
 
-# Install dependencies
 uv sync
-
-# Configure your environment (copy and edit)
 cp .env.example .env
 
-# Run test suite
 uv run pytest -v
-
-# Run the full experimental ladder
 uv run python -m experiments.runner
-
-# Run the interactive demo
 uv run python demo.py case_01
 ```
 
----
-
-## The Core Insight
-
-> **The hard part of smart contract remediation is not generating a patch. It is proving that the patch actually fixes the vulnerability without breaking the protocol.**
-
-A single-turn LLM generates an answer.  
-Litmus generates a **candidate, tests it, learns from failure, and verifies the result**.
-
-That distinction turns remediation from:
-
-```text
-Generate → Trust
-```
-
-into:
-
-```text
-Generate → Verify → Diagnose → Replan → Verify
-```
-
-**That is the closed loop.**
-```
